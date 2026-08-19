@@ -45,3 +45,16 @@ pip install nltk
 # 新增配置
 pip install tiktoken
 pip install json-repair
+
+
+代码中一些潜在的问题：
+1、当前 token 统计不适用于 Qwen 和 Gemma：
+Profiler 用字符数除以 3.5 估算 token；Solver 则把 Qwen 映射到 OpenAI 的 cl100k_base。Gemma 没有单独映射，会落入相同的默认编码。这些数字不能准确反映 Qwen 和 Gemma 的真实上下文占用。
+2、目前的截断方式是Head–Tail 截断
+当前文本过长时保留开头一半和结尾一半，中间直接删除。这样可能把答案区域、核心表头或某个中间 sheet 完全裁掉。不同表示的序列化顺序和长度不同，因此截断会成为额外变量。
+3、Router 使用了数据集特有的目标元信息
+Profiler 会把以下字段直接放入路由画像：
+RealHiTBench 的 QuestionType、SubQType、CompStrucCata；
+SpreadsheetBench 的 instruction_type、answer_position、answer_sheet。
+启发式 Router 还会因为 answer_position 或 answer_sheet 存在而直接判定坐标需求。
+这不一定是传统意义上的“答案泄漏”：SpreadsheetBench Solver 本身也按照官方任务字段接收目标范围。但它会使你的 Router 变成一个依赖 benchmark annotation 的方法，无法直接支持“适用于所有电子表格推理任务”的主张。
