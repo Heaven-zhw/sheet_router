@@ -1,0 +1,520 @@
+# 启动代码运行器
+cd /mnt/data/zhw/sheet_router/code_exec_docker
+bash start_jupyter_server.sh
+
+## RealHiTBench
+python dynamic_router.py \
+  --dataset realhitbench \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --model_name Qwen3.5-9B \
+  --workers 8 \
+  --max_retries 3
+
+## SpreadsheetBench
+python dynamic_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --model_name Qwen3.5-9B \
+  --code_exec_url localhost:8081 \
+  --workers 4 \
+  --max_text_tokens 40000 \
+  --render_formulas_before_eval
+
+
+python dynamic_router.py \
+  --dataset realhitbench \
+  --router_policy blackbox_heuristic \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --model_name Qwen3.5-9B \
+  --workers 8 \
+  --max_retries 3
+
+python dynamic_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --router_policy blackbox_heuristic \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --model_name Qwen3.5-9B \
+  --code_exec_url localhost:8081 \
+  --workers 4 \
+  --max_text_tokens 40000 \
+  --render_formulas_before_eval
+
+
+
+####################################### 单模态的启发路由
+# Qwen3.5-9B 
+python single_resp_router.py \
+  --dataset realhitbench \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --model_name Qwen3.5-9B \
+  --max_text_tokens 200000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/Qwen3.5-9B/single_resp_router_heuristic_100ktoken
+
+python single_resp_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --model_name Qwen3.5-9B \
+  --code_exec_url localhost:8081 \
+  --workers 8 \
+  --max_text_tokens 40000 \
+  --render_formulas_before_eval
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/Qwen3.5-9B/single_resp_router_heuristic_40ktoken
+
+# gemma-3-12b-it
+python single_resp_router.py \
+  --dataset realhitbench \
+  --base_url http://10.26.33.169:33373/v1 \
+  --api_key 1234 \
+  --model_name gemma-3-12b-it \
+  --max_text_tokens 200000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/gemma-3-12b-it/single_resp_router_heuristic_100ktoken
+
+python single_resp_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --base_url http://10.26.33.169:33373/v1 \
+  --api_key 1234 \
+  --model_name gemma-3-12b-it \
+  --code_exec_url localhost:8081 \
+  --workers 8 \
+  --max_text_tokens 40000 \
+  --render_formulas_before_eval
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/gemma-3-12b-it/single_resp_router_heuristic_40ktoken
+
+# gemma-4-12B-it
+python single_resp_router.py \
+  --dataset realhitbench \
+  --base_url http://10.26.33.169:33374/v1 \
+  --api_key 1234 \
+  --model_name gemma-4-12B-it \
+  --max_text_tokens 200000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/gemma-4-12B-it/single_resp_router_heuristic_100ktoken
+
+python single_resp_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --base_url http://10.26.33.169:33374/v1 \
+  --api_key 1234 \
+  --model_name gemma-4-12B-it \
+  --code_exec_url localhost:8081 \
+  --workers 8 \
+  --max_text_tokens 40000 \
+  --render_formulas_before_eval
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/gemma-4-12B-it/single_resp_router_heuristic_40ktoken
+
+
+################### 单模态的大模型路由
+# Qwen3.5-9B 
+python single_resp_llm_router.py \
+  --dataset realhitbench \
+  --model_name Qwen3.5-9B \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --router_model_name Qwen3.5-9B \
+  --router_url http://10.26.35.171:33370/v1 \
+  --router_api_key 12345 \
+  --max_text_tokens 100000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/Qwen3.5-9B/single_resp_llm_router_rmodel_Qwen3.5-9B_100ktoken
+
+python single_resp_llm_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --model_name Qwen3.5-9B \
+  --base_url http://10.26.35.171:33370/v1 \
+  --api_key 1234 \
+  --router_model_name Qwen3.5-9B \
+  --router_url http://10.26.35.171:33370/v1 \
+  --router_api_key 12345 \
+  --code_exec_url localhost:8081 \
+  --max_text_tokens 40000 \
+  --workers 4
+
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/Qwen3.5-9B/single_resp_llm_router_rmodel_Qwen3.5-9B_40ktoken
+
+
+# gemma-3-12b-it
+## gemma-3-12b-it当路由
+python single_resp_llm_router.py \
+  --dataset realhitbench \
+  --model_name gemma-3-12b-it \
+  --base_url http://10.26.33.169:33373/v1 \
+  --api_key 1234 \
+  --router_model_name gemma-3-12b-it \
+  --router_url http://10.26.33.169:33373/v1 \
+  --router_api_key 12345 \
+  --max_text_tokens 100000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/gemma-3-12b-it/single_resp_llm_router_rmodel_gemma-3-12b-it_100ktoken
+
+python single_resp_llm_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --model_name gemma-3-12b-it \
+  --base_url http://10.26.33.169:33373/v1 \
+  --api_key 1234 \
+  --router_model_name gemma-3-12b-it \
+  --router_url http://10.26.33.169:33373/v1 \
+  --router_api_key 12345 \
+  --code_exec_url localhost:8081 \
+  --max_text_tokens 40000 \
+  --workers 4
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/gemma-3-12b-it/single_resp_llm_router_rmodel_gemma-3-12b-it_40ktoken
+
+## Qwen3.5-9B当路由
+python single_resp_llm_router.py \
+  --dataset realhitbench \
+  --model_name gemma-3-12b-it \
+  --base_url http://10.26.33.169:33373/v1 \
+  --api_key 1234 \
+  --router_model_name Qwen3.5-9B \
+  --router_url http://10.26.35.171:33370/v1 \
+  --router_api_key 12345 \
+  --max_text_tokens 100000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/gemma-3-12b-it/single_resp_llm_router_rmodel_Qwen3.5-9B_100ktoken
+
+python single_resp_llm_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --model_name gemma-3-12b-it \
+  --base_url http://10.26.33.169:33373/v1 \
+  --api_key 1234 \
+  --router_model_name Qwen3.5-9B \
+  --router_url http://10.26.35.171:33370/v1 \
+  --router_api_key 12345 \
+  --code_exec_url localhost:8081 \
+  --max_text_tokens 40000 \
+  --workers 4
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/gemma-3-12b-it/single_resp_llm_router_rmodel_Qwen3.5-9B_40ktoken
+
+# gemma-4-12B-it
+## gemma-4-12B-it当路由
+python single_resp_llm_router.py \
+  --dataset realhitbench \
+  --model_name gemma-4-12B-it \
+  --base_url http://10.26.33.169:33374/v1 \
+  --api_key 1234 \
+  --router_model_name gemma-4-12B-it \
+  --router_url http://10.26.33.169:33374/v1 \
+  --router_api_key 12345 \
+  --max_text_tokens 100000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/gemma-4-12B-it/single_resp_llm_router_rmodel_gemma-4-12B-it_100ktoken
+
+python single_resp_llm_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --model_name gemma-4-12B-it \
+  --base_url http://10.26.33.169:33374/v1 \
+  --api_key 1234 \
+  --router_model_name gemma-4-12B-it \
+  --router_url http://10.26.33.169:33374/v1 \
+  --router_api_key 12345 \
+  --code_exec_url localhost:8081 \
+  --max_text_tokens 40000 \
+  --workers 4
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/gemma-4-12B-it/single_resp_llm_router_rmodel_gemma-4-12B-it_40ktoken
+
+## Qwen3.5-9B当路由
+python single_resp_llm_router.py \
+  --dataset realhitbench \
+  --model_name gemma-4-12B-it \
+  --base_url http://10.26.33.169:33374/v1 \
+  --api_key 1234 \
+  --router_model_name Qwen3.5-9B \
+  --router_url http://10.26.35.171:33370/v1 \
+  --router_api_key 12345 \
+  --max_text_tokens 100000 \
+  --workers 8
+python summarize_router_formats.py outs/realhitbench/gemma-4-12B-it/single_resp_llm_router_rmodel_Qwen3.5-9B_100ktoken
+
+python single_resp_llm_router.py \
+  --dataset spreadsheetbench \
+  --data_split verified_400 \
+  --model_name gemma-4-12B-it \
+  --base_url http://10.26.33.169:33374/v1 \
+  --api_key 1234 \
+  --router_model_name Qwen3.5-9B \
+  --router_url http://10.26.35.171:33370/v1 \
+  --router_api_key 12345 \
+  --code_exec_url localhost:8081 \
+  --max_text_tokens 40000 \
+  --workers 4
+python summarize_router_formats.py outs/spreadsheetbench_verified_400/gemma-4-12B-it/single_resp_llm_router_rmodel_Qwen3.5-9B_40ktoken
+
+
+
+
+
+
+
+
+
+
+## baseline跑一遍
+# Qwen3.5-9B
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format json_cells \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+  python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format json_rows \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format json_cells \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+
+
+# gemma-3-12b-it
+python realhit_cot.py \
+  --url 10.26.35.37:33373 \
+  --model_name gemma-3-12b-it \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.37:33373 \
+  --model_name gemma-3-12b-it \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.37:33373 \
+  --model_name gemma-3-12b-it \
+  --table_format json_rows \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.37:33373 \
+  --model_name gemma-3-12b-it \
+  --table_format json_cells \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33373 \
+  --model_name gemma-3-12b-it \
+  --table_format json_cells \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33373 \
+  --model_name gemma-3-12b-it \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+
+# gemma-4-12B-it
+python realhit_cot.py \
+  --url 10.26.35.37:33374 \
+  --model_name gemma-4-12B-it \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.37:33374 \
+  --model_name gemma-4-12B-it \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.37:33374 \
+  --model_name gemma-4-12B-it \
+  --table_format json_cells \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python realhit_cot.py \
+  --url 10.26.35.37:33374 \
+  --model_name gemma-4-12B-it \
+  --table_format json_rows \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --max_text_tokens 100000 \
+  -s 100ktoken \
+  --report_every 100 \
+  --save_every 100 
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33374 \
+  --model_name gemma-4-12B-it \
+  --table_format json_cells \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33374 \
+  --model_name gemma-4-12B-it \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+

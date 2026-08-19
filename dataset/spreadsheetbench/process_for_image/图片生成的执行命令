@@ -1,0 +1,29 @@
+# 在 sheet_router 根目录执行以下命令。
+conda activate spreadsheetagent
+
+python dataset/spreadsheetbench/process_for_image/render_spreadsheetbench_table_images.py \
+  --splits verified_400 \
+  --output-folder image \
+  --workers 8 \
+  --overwrite \
+  --manifest dataset/spreadsheetbench/process_for_image/render_table_image_manifest_verified_400.json
+
+python dataset/spreadsheetbench/process_for_image/render_spreadsheetbench_table_images.py \
+  --splits all_912 \
+  --output-folder image \
+  --workers 8 \
+  --overwrite \
+  --manifest dataset/spreadsheetbench/process_for_image/render_table_image_manifest_all_912.json
+
+# all_912 中 383-16、31745 这两组超大文件可能需要更长超时。
+python dataset/spreadsheetbench/process_for_image/render_spreadsheetbench_table_images.py \
+  --splits all_912 \
+  --ids 383-16,31745 \
+  --output-folder image \
+  --workers 2 \
+  --timeout 1800 \
+  --manifest dataset/spreadsheetbench/process_for_image/render_table_image_manifest_all_912_timeout_retry.json
+
+python dataset/spreadsheetbench/process_for_image/check_large_whitespace.py \
+  --image-folder image \
+  --output dataset/spreadsheetbench/process_for_image/large_whitespace_report_table_image.json

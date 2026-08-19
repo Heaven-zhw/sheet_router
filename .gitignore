@@ -1,0 +1,47 @@
+# Runtime / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Evaluation and experiment outputs
+outs/
+
+# Dataset policy:
+# - keep original spreadsheet files
+# - keep metadata / description files
+# - keep one sample per derived format for each dataset
+dataset/**
+!dataset/
+!dataset/**/
+
+# Original spreadsheet files
+!dataset/**/*.xls
+!dataset/**/*.xlsx
+!dataset/**/*.xlsm
+!dataset/**/*.xlsb
+
+# Full source spreadsheet set for SpreadsheetBench verified split
+!dataset/spreadsheetbench/spreadsheetbench_verified_400/spreadsheet/**
+
+# Metadata and dataset descriptions
+!dataset/**/*.json
+!dataset/**/*.yaml
+!dataset/**/*.yml
+!dataset/**/*.md
+!dataset/**/README*
+!dataset/数据集说明
+!dataset/realhitbench/数据修复说明
+!dataset/spreadsheetbench/process_for_image/图片生成的执行命令
+
+# Processing scripts inside dataset folders
+!dataset/**/*.py
+
+# One PNG sample per dataset
+!dataset/mimotable/english/spreadsheet/cost_analysis.png
+!dataset/realhitbench/image/education-table33.png
+!dataset/spreadsheetbench/all_data_912_v0.1/image/2_384-4_input___3.png
+!dataset/spreadsheetbench/spreadsheetbench_verified_400/image/1_13-1_init___1.png

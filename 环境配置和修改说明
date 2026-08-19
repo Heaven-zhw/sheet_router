@@ -1,0 +1,47 @@
+基于SpreadsheetAgent修改成探索表格表示对电子表格推理的影响
+
+实现了resume功能
+
+
+数据集：
+dataset/realhitbench/realhit.json排除了Data Analysis和Visualization两类问题
+RealHiTBench中部分样例缺少某些格式的表格文件，比如tables少health-table09.xlsx、society-table10_swap.xlsx
+
+RealHiTBench的部分图片会超长报错：
+DecompressionBombError:
+PIL.Image.DecompressionBombError: Image size (233237016 pixels) exceeds limit of 178956970 pixels, could be decompression bomb DOS attack
+长图片为：
+food-table11.png       3891 x 88843   = 345,688,113 pixels
+economy-table131.png  12768 x 23724  = 302,908,032 pixels
+economy-table29.png    8882 x 31234  = 277,420,388 pixels
+military-table12.png  10472 x 22851  = 239,295,672 pixels
+economy-table14.png    5436 x 42906  = 233,237,016 pixels
+economy-table26.png   11792 x 19393  = 228,682,256 pixels
+economy-table92.png    6596 x 32696  = 215,662,816 pixels
+
+
+我们比较了两类视觉表格输入。第一类为 image，表示预先准备好的电子表格图像。对于 RealHiTBench，我们直接使用原 benchmark 提供的图像；对于 SpreadsheetBench，由于原数据集不包含对应图像，我们基于原始 Excel 工作簿导出每个可见工作表的 PNG 图像，以尽量保留原表格的视觉格式，包括字体、字号、背景色、边框、合并单元格以及带样式的空白区域。第二类为 default_image，它是在推理时由 render_excel_range_to_png 从 Excel 文件动态渲染得到的图像。该方法根据有值单元格确定 used range，将该范围复制到临时工作簿后再渲染，因此更偏向于数据区域的规范化截图，周围的工作表上下文和部分原始布局信息可能会被弱化或丢失。
+
+注意：verified_400/image 中有 10 张 PNG 超过了 PIL 的安全像素阈值
+
+环境配置
+# SpreadsheetAgent基础配置
+pip install tornado
+pip install docker
+pip install flask
+# pip install excel2img
+pip install openpyxl
+pip install Pillow
+pip install tqdm
+pip install numpy
+pip install pandas
+pip install matplotlib
+pip install evaluate
+pip install sacrebleu 
+pip install rouge-score 
+pip install absl-py 
+pip install nltk
+
+# 新增配置
+pip install tiktoken
+pip install json-repair

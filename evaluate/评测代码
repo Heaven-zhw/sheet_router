@@ -1,0 +1,9 @@
+高级评测代码
+
+SpreadsheetBench：需要打开生成的excel文件，将公式渲染成值
+open_spreadsheet.py：提供找到文件和打开关闭文件的操作；spreadsheet_pot.py中也用到了
+reevaluate_spreadsheetbench.py：对于没有做打开文件操作的评测结果，重新打开文件渲染和评测，生成新的评测文件【后续可改成覆盖生成】
+
+/mnt/data/zhw/sheet_router/evaluate/reevaluate_spreadsheetbench.py
+/mnt/data/zhw/sheet_router/evaluate/summarize_spreadsheetbench_by_sheet_count.py
+目前默认读取的文件是spreadsheet_pot_accuracy.json

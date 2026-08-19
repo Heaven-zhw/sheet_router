@@ -1,0 +1,1029 @@
+    
+SUPPORTED_TABLE_FORMATS = (
+    "latex",
+    "csv",
+    "tsv",
+    "markdown",
+    "dataframe",
+    "json_rows",
+    "json_cells",
+    "html",
+)
+
+输出路径规则：
+RealHiTBench: outs/realhitbench/<model_name>/cot_<table_format>/
+SpreadsheetBench: outs/spreadsheetbench_<data_split>/<model_name>/pot_<table_format>/
+其中 SpreadsheetBench data_split 支持：
+all_912: dataset/spreadsheetbench/all_data_912_v0.1
+verified_400: dataset/spreadsheetbench/spreadsheetbench_verified_400
+
+# 开启docker
+cd /mnt/data/zhw/sheet_router/code_exec_docker
+bash start_jupyter_server.sh
+
+# 当Docker 默认 bridge 网络被容器占满，清理容器的命令
+docker ps --filter ancestor=xingyaoww/codeact-executor:latest -q | xargs -r docker stop
+
+
+##################### 一、Qwen3-VL-30B
+### RealHiTBench
+
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format markdown \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format html \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+  
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format excel_1_image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "markdown+image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+  
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "latex+image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "markdown+excel_1_image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+  
+python realhit_cot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "latex+excel_1_image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100  
+
+### SpreadsheetBench all_912
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format markdown \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format excel_1_image \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "markdown+excel_1_image" \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+### SpreadsheetBench verified_400
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format markdown \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "markdown+excel_1_image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --render_formulas_before_eval
+
+## 40K
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format markdown \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.37:33363 \
+  --model_name Qwen3-VL-30B-A3B-Instruct \
+  --table_format "markdown+excel_1_image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+
+
+
+#################### 二、Qwen3.5-9B
+
+### RealHiTBench
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format html \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format markdown \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+# 如果中断后同一输出目录中已有 realhit_cot.partial.jsonl / realhit_cot_eval.partial.json，可加 --resume 续跑未完成样本
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format excel_1_image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format 'markdown+image' \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format 'markdown+excel_1_image' \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format 'latex+image' \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+python realhit_cot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format 'latex+excel_1_image' \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100
+
+### SpreadsheetBench all_912
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format markdown \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format excel_1_image \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format "markdown+excel_1_image" \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format image \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format "markdown+image" \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format default_image \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format "markdown+default_image" \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+
+### SpreadsheetBench verified_400
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format markdown \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format "markdown+excel_1_image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format "markdown+image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format default_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33370 \
+  --model_name Qwen3.5-9B \
+  --table_format "markdown+default_image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 40000 \
+  -s 40ktoken \
+  --render_formulas_before_eval
+
+
+
+### 重新评测
+python evaluate/open_spreadsheet.py \
+  --dir_path outs/spreadsheetbench_verified_400/Qwen3.5-9B/pot_markdown/spreadsheet
+
+python evaluate/open_spreadsheet.py \
+  --dir_path outs/spreadsheetbench_verified_400/Qwen3.5-9B/pot_excel_1_image/spreadsheet
+
+python evaluate/open_spreadsheet.py \
+  --dir_path outs/spreadsheetbench_verified_400/Qwen3.5-9B/pot_markdown+excel_1_image/spreadsheet
+
+python evaluate/reevaluate_spreadsheetbench.py \
+  --results_root outs/spreadsheetbench_verified_400/Qwen3.5-9B \
+  --data_split verified_400 \
+  --output_tag recalc
+
+
+
+##################### 三、InternVL3_5-30B-A3B [最大输入长度是40K]
+### RealHiTBench
+
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format markdown \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format html \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+  
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format excel_1_image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format "markdown+image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+  
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format "latex+image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format "markdown+excel_1_image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+  
+python realhit_cot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format "latex+excel_1_image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken  
+
+### SpreadsheetBench all_912
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format markdown \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format excel_1_image \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format "markdown+excel_1_image" \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+### SpreadsheetBench verified_400
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format markdown \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33361 \
+  --model_name InternVL3_5-30B-A3B \
+  --table_format "markdown+excel_1_image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+
+
+##################### 四、MiMo-VL-7B-RL-2508
+### RealHiTBench
+
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format latex \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format markdown \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format html \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+  
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format excel_1_image \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format "markdown+image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+  
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format "latex+image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format "markdown+excel_1_image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken
+  
+python realhit_cot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format "latex+excel_1_image" \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 8 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken  
+
+### SpreadsheetBench all_912
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format markdown \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format excel_1_image \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format "markdown+excel_1_image" \
+  --data_split all_912 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 100 \
+  --save_every 100 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+### SpreadsheetBench verified_400
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format markdown \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format excel_1_image \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval
+
+python spreadsheet_pot.py \
+  --url 10.26.35.171:33364 \
+  --model_name MiMo-VL-7B-RL-2508 \
+  --table_format "markdown+excel_1_image" \
+  --data_split verified_400 \
+  --temperature 0 \
+  --top_p 1.0 \
+  --max_retries 3 \
+  --workers 4 \
+  --report_every 50 \
+  --save_every 50 \
+  --max_text_tokens 25000 \
+  -s 25ktoken \
+  --render_formulas_before_eval

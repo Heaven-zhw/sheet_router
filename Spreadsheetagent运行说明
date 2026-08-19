@@ -1,0 +1,125 @@
+
+
+api.py代码执行沙箱的逻辑
+客户端
+   |
+   | POST /execute
+   | {convid, mount_dir, code}
+   v
+Tornado API 服务
+   |
+   |-- 如果 convid 没有对应 kernel:
+   |      创建 JupyterGatewayDocker
+   |      创建 JupyterKernel
+   |
+   |-- 更新 last_access_time
+   |
+   |-- 在该 kernel 中执行 code
+   |
+   v
+返回执行结果
+
+用spreadsheetagent环境
+
+========================================
+一、安装：
+pip install tornado
+pip install docker
+pip install flask
+# pip install excel2img
+pip install openpyxl
+pip install Pillow
+pip install tqdm
+pip install numpy
+pip install pandas
+pip install matplotlib
+pip install evaluate
+pip install sacrebleu 
+pip install rouge-score 
+pip install absl-py 
+pip install nltk
+
+二、准备工作：
+# 下载镜像
+docker pull docker.io/xingyaoww/codeact-executor
+
+# 启动代码执行器的服务，默认端口8081
+cd code_exec_docker
+bash start_jupyter_server.sh
+
+# 启动excel转图片的服务，默认端口8007
+# Excel 文件 → 截取指定区域到新工作簿 → 用 LibreOffice 转成 PDF → 用 pdftoppm 转成 PNG → 裁掉白边 → 输出图片或 base64。
+python core/excel2image_linux.py
+
+# 注：原始代码excel2image.py基于excel2img库实现，具体思路是“调用 Windows 上的 Microsoft Excel，把选定区域复制到剪贴板，再用 PIL 从剪贴板取图保存”。这份代码没有可配置 DPI，也没有自动裁边；它更像是“让 Excel 把区域截图到剪贴板，再原样存图。效果不等同于原先的截图工具。
+
+三、运行
+# extractor.py作用是给每个 sheet 写一个 JSON 结果文件，路径形如
+原xlsx文件名_工作表名_suffix.json
+文件写在对应 Excel 所在目录下
+逻辑在 base.py (line 68)
+
+# 加了两个参数model_name和vision_model_name，不指定默认名是model
+
+# extractor模式说明：
+- no / yaml / json / tree
+最基础版本，只做一次结构提取。
+- *_desc
+在基础版本上，加“怎么用工具”的策略提示。
+- *_desc_verify
+在 desc 的基础上，再加视觉 / latex 交叉验证和修正闭环。
+总共支持模式：
+no
+tree
+yaml
+json
+yaml_desc
+yaml_desc_vision
+yaml_desc_latex
+no_desc
+json_desc
+yaml_desc_verify
+yaml_desc_vision_verify
+yaml_desc_latex_verify
+no_desc_verify
+json_desc_verify
+
+默认是yaml_desc_verify， yaml_desc_verify推理速度比较慢
+
+
+# 1、基于Qwen3-30B-A3B-Instruct-2507 + Qwen3-VL-8B-Instruct
+# 运行提取
+python extractor.py \
+    --extractor yaml_desc_verify \
+    --dataset spreadsheet \
+    --url 192.168.135.4:6004 \
+    --model_name Qwen3-30B-A3B-Instruct-2507 \
+    --vision_url 10.26.33.169:33369 \
+    --vision_model_name Qwen3-VL-8B-Instruct \
+    --suffix qwen3-30b_qwen3vl-8b
+
+python extractor.py \
+    --extractor yaml_desc_verify \
+    --dataset realhit \
+    --url 192.168.135.4:6004 \
+    --model_name Qwen3-30B-A3B-Instruct-2507 \
+    --vision_url 10.26.33.169:33369 \
+    --vision_model_name Qwen3-VL-8B-Instruct \
+    --suffix qwen3-30b_qwen3vl-8b
+
+
+# 运行推理，suffix的含义是 下游推理模型_提取器模型_视觉模型
+python spreadsheet.py \
+    --url 192.168.135.4:6004 \
+    --model_name Qwen3-30B-A3B-Instruct-2507 \
+    --suffix qwen3-30b_qwen3-30b_qwen3vl-8b
+
+python realhit.py \
+    --url 192.168.135.4:6004 \
+    --model_name Qwen3-30B-A3B-Instruct-2507 \
+    --suffix qwen3-30b_qwen3-30b_qwen3vl-8b
+
+
+export MODEL_API_KEY='YOUR_MODEL_API_KEY'
+export MODEL_NAME='Qwen3.5-35B-A3B'
+export MODEL_API_URL=http://10.26.33.169:8666/v1/

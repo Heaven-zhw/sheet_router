@@ -1,0 +1,8 @@
+对于realhit原始数据QA_final.json：
+health-table09有html, image, latex, markdown, csv，缺少xlsx
+labor-table68有image, latex, xlsx, markdown, csv，缺少html
+society-table10_swap有image，缺少html, latex, xlsx, markdown, csv
+
+用大模型重新构建了缺少的数据格式：RealHiTBench/reconsturct
+health-table09、labor-table68、society-table10_swap在QA_final.json，其他的在QA_long.json
+已经复制society-table10_swap.xlsx, society-table10_swap.latex, health-table09.xlsx到数据集中，society-table10_swap, health-table09的excel_1_images数据也加上了

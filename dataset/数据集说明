@@ -1,0 +1,21 @@
+图像文件的获取方式
+RealHiTBench：
+image为官方提供的图片，default_images是运行时直接从 xlsx 渲染得到的默认截图，从运行结果中复制而来，excel_1_iamges是基于原生 Excel / dataframe 导出的 Excel 风格截图，自行处理的代码位于工位win11主机
+
+SpreadsheetBench-all-912：
+没有原官方提供的图片，`image` 是dataset/spreadsheetbench/process_for_image预先生成的的图片，充当默认图片，该图片的DPI更高，与原图更接近；`default_image` 是代码运行时从 xlsx 渲染的默认截图，从运行结果中复制而来；暂时没处理excel_1_iamges
+
+SpreadsheetBench-verified-400：
+与all-912基本相同，多了预生成的 Excel 风格截图`excel_1_image`，生成方式同RealHiTBench
+
+
+=================================
+SpreadsheetBench的default_image和image图像格式差别
+1、范围不同
+default_image 只按有值单元格确定范围；image会把有值单元格、显式样式单元格、合并区域都纳入。因此image更容易保留原表里的空白样式区、背景色区域、右侧空列、顶部色块等。
+2、长表处理不同
+default_image 设置 fitToWidth=1, fitToHeight=1，且 pdftoppm 用 -singlefile，长表会被压缩到很小，甚至像一条很窄的长图。image设置 fitToWidth=1, fitToHeight=0，会把多页 PDF 竖向拼接，所以长表内容更大、更可读，但图片尺寸可能非常长。
+3、分辨率不同
+default_image 默认 DPI 是 200；image默认 DPI 是 300。因此image通常更大、更清晰。
+4、样式保真程度不同
+default_image 会用 openpyxl 把单元格值、字体、fill、border、alignment、merged cells 复制到新 workbook，但容易丢失 workbook/sheet 级别的东西，比如条件格式、图形对象、复杂主题、部分页面设置等。image直接基于原始 xlsx 包导出，更可能保留原始背景色、边框、主题、条件格式和对象，但仍取决于 LibreOffice 的渲染能力。
