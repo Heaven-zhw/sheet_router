@@ -3,7 +3,7 @@ RealHiTBench：
 image为官方提供的图片，default_images是运行时直接从 xlsx 渲染得到的默认截图，从运行结果中复制而来，excel_1_iamges是基于原生 Excel / dataframe 导出的 Excel 风格截图，自行处理的代码位于工位win11主机
 
 SpreadsheetBench-all-912：
-没有原官方提供的图片，`image` 是dataset/spreadsheetbench/process_for_image预先生成的的图片，充当默认图片，该图片的DPI更高，与原图更接近；`default_image` 是代码运行时从 xlsx 渲染的默认截图，从运行结果中复制而来；暂时没处理excel_1_iamges
+没有原官方提供的图片，`image` 是dataset/spreadsheetbench/process_for_image预先生成的的图片，充当默认图片，该图片的DPI更高，与原图更接近；`default_image` 是代码运行时从 xlsx 渲染的默认截图，从运行结果中复制而来；暂时没处理excel_1_images
 
 SpreadsheetBench-verified-400：
 与all-912基本相同，多了预生成的 Excel 风格截图`excel_1_image`，生成方式同RealHiTBench

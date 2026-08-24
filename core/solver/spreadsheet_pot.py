@@ -514,7 +514,7 @@ class SpreadsheetTableInputBuilder:
         return f"Used Range: {self._bounds_to_range(bounds)}\n{buffer.getvalue().rstrip()}"
 
     def _serialize_markdown(self, ws) -> str:
-        rows, bounds = self._matrix(ws, include_coordinates=True)
+        rows, bounds = self._matrix(ws)
         escaped = [[self._escape_markdown_cell(cell) for cell in row] for row in rows]
         widths = [max(len(row[idx]) for row in escaped) for idx in range(len(escaped[0]))]
 
@@ -581,7 +581,7 @@ class SpreadsheetTableInputBuilder:
         return json.dumps(payload, ensure_ascii=False)
 
     def _serialize_html(self, ws) -> str:
-        rows, bounds = self._matrix(ws, include_coordinates=True)
+        rows, bounds = self._matrix(ws)
         lines = [
             f"<table data-sheet={json.dumps(ws.title)} data-used-range={json.dumps(self._bounds_to_range(bounds))}>"
         ]
