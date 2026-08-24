@@ -53,7 +53,6 @@ SINGLE_FORMATS = (
 TEXT_FORMATS = {"markdown", "official_latex", "latex", "html", "csv", "dataframe", "json_rows", "json_cells"}
 IMAGE_FORMATS = {"image", "excel_1_image", "default_image"}
 QA_PRIORITY = (
-    "official_latex",
     "latex",
     "json_cells",
     "markdown",
@@ -78,7 +77,6 @@ MANIPULATION_PRIORITY = (
     "default_image",
 )
 QA_BASE_SCORES = {
-    "official_latex": 3.0,
     "latex": 3.0,
     "json_cells": 2.6,
     "markdown": 2.3,
@@ -325,7 +323,7 @@ def priority_for_task(task_mode: str) -> Tuple[str, ...]:
 
 
 def default_for_task(task_mode: str) -> str:
-    return "official_latex" if task_mode == "qa_cot" else "json_cells"
+    return "latex" if task_mode == "qa_cot" else "json_cells"
 
 
 def image_priority(dataset: str) -> Tuple[str, ...]:
@@ -686,7 +684,7 @@ def all_text_formats_too_long(routing_input: Dict[str, Any], available: Set[str]
 
 def compact_text_fallback(task_mode: str, routing_input: Dict[str, Any], available: Set[str]) -> Optional[str]:
     if task_mode == "qa_cot":
-        order = ("json_cells", "official_latex", "latex", "csv", "json_rows", "markdown", "dataframe", "html")
+        order = ("json_cells", "latex", "csv", "json_rows", "markdown", "dataframe", "html")
     else:
         order = ("json_cells", "json_rows", "csv", "markdown", "latex", "dataframe", "html")
     for fmt in order:
@@ -765,7 +763,8 @@ def score_formats(needs: Dict[str, bool], routing_input: Dict[str, Any]) -> Dict
         for fmt, weight in weights.items():
             scores[fmt] += bonus * weight
         for fmt in TEXT_FORMATS:
-            scores[fmt] -= 0.6
+            if fmt in scores:
+                scores[fmt] -= 0.6
 
     if needs["exact_coordinates"]:
         scores["json_cells"] += 2.2
@@ -775,7 +774,7 @@ def score_formats(needs: Dict[str, bool], routing_input: Dict[str, Any]) -> Dict
         scores["markdown"] += 0.4
     if needs["complex_headers"]:
         if task_mode == "qa_cot":
-            scores["official_latex"] += 1.3
+            scores["latex"] += 1.3
         else:
             scores["latex"] += 0.2
         scores["json_cells"] += 1.0
@@ -790,7 +789,7 @@ def score_formats(needs: Dict[str, bool], routing_input: Dict[str, Any]) -> Dict
         scores["json_cells"] += 0.9
     if needs["numeric_reasoning"]:
         if task_mode == "qa_cot":
-            scores["official_latex"] += 0.8
+            scores["latex"] += 0.8
         scores["json_cells"] += 0.5
 
     dense = float(profile.get("density") or 0.0) >= 0.35
@@ -871,6 +870,8 @@ class SingleResponseLLMRouter:
     def route(self, dataset: str, item: Dict[str, Any], profile: Dict[str, Any]) -> RouteDecision:
         task_mode = task_mode_for_dataset(dataset)
         available_formats = build_available_formats(profile)
+        if dataset == "realhitbench":
+            available_formats = [fmt for fmt in available_formats if fmt != "official_latex"]
         routing_input = self._build_routing_input(dataset, item, profile, available_formats)
         messages = self._build_messages(routing_input)
         raw_response = ""

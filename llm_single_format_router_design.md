@@ -25,7 +25,7 @@
 
 现有 Qwen/Gemma 统计给出三个稳定结论。
 
-1. RealHiTBench 中，oracle 明显高于单一格式，说明“按样本选格式”有空间。跨 Qwen/Gemma 平均看，`latex` 与 `json_cells` 是最稳的文本候选。
+1. RealHiTBench 中，oracle 明显高于单一格式，说明“按样本选格式”有空间。跨 Qwen/Gemma 平均看，`official_latex` 与 `json_cells` 是最稳的文本候选。
 2. SpreadsheetBench 中，`json_cells` 是最稳默认格式：在已有 Qwen/Gemma 统计里平均 hard_all 最高，且每个模型上都是第一。
 3. 图像格式有独占正确样例，但整体不适合作为默认。只有查询明确需要颜色、边框、合并视觉布局、格式参考、截图对象等信息时才优先考虑图像。
 
@@ -34,7 +34,7 @@
 ```text
 RealHiTBench / EM:
   oracle avg = 82.16
-  latex default avg = 64.24
+  official_latex default avg = 64.24
   oracle gap = +17.92
   only-one-format-correct avg = 5.58
 
@@ -48,7 +48,7 @@ SpreadsheetBench / hard_all:
 推荐默认：
 
 ```text
-RealHiTBench / QA: latex
+RealHiTBench / QA: official_latex
 SpreadsheetBench / Manipulation: json_cells
 ```
 
@@ -60,7 +60,7 @@ SpreadsheetBench / Manipulation: json_cells
 
 ```text
 markdown
-latex
+official_latex
 html
 csv
 dataframe
@@ -78,7 +78,7 @@ default_image
 下面内容作为程序侧格式映射依据。当前实现不要求 LLM 直接选择格式。
 
 ```text
-latex:
+official_latex:
   good_for: complex headers, merged headers, compact QA reasoning, table hierarchy
   weak_for: exact sparse coordinate tracing, very large tables
 
@@ -133,7 +133,7 @@ default_image:
   "instruction_type": "Cell-Level Manipulation | Sheet-Level Manipulation | null",
   "answer_position": "A1:B5 | null",
   "answer_sheet": "Sheet1 | null",
-  "available_formats": ["latex", "json_cells", "..."],
+  "available_formats": ["official_latex", "json_cells", "..."],
   "token_budget": 100000,
   "workbook_profile": {
     "num_sheets": 1,
@@ -156,7 +156,7 @@ default_image:
       }
     ],
     "estimated_tokens": {
-      "latex": 3200,
+      "official_latex": 3200,
       "markdown": 5100,
       "json_rows": 6200,
       "json_cells": 2800,
@@ -263,7 +263,7 @@ def route_from_needs(llm_decision, routing_input):
     task_mode = routing_input["task_mode"]
     dataset = routing_input["dataset"]
 
-    default = "latex" if task_mode == "qa_cot" else "json_cells"
+    default = "official_latex" if task_mode == "qa_cot" else "json_cells"
     needs = merge_llm_and_program_tags(llm_decision["needs"], routing_input)
     scores = base_scores(task_mode)
 
@@ -274,7 +274,7 @@ def route_from_needs(llm_decision, routing_input):
     if needs["row_records"]:
         scores["json_rows"] += 2.0
     if needs["complex_headers"]:
-        scores["latex"] += 1.3
+        scores["official_latex"] += 1.3
         scores["json_cells"] += 1.0
     if needs["sparse_or_large"] or needs["multi_sheet"]:
         scores["json_cells"] += 1.0
@@ -306,7 +306,7 @@ SpreadsheetBench: excel_1_image > image > default_image
 
 这些规则是程序侧把 `needs` 标签映射到格式时的主要检查项。
 
-选择 `latex`：
+选择 `official_latex`：
 
 - QA 任务。
 - 查询需要理解层级表头、合并表头、跨列/跨行结构。
@@ -385,7 +385,7 @@ Solver 集成方式：
 
 ```text
 default_single:
-  RealHiTBench = latex
+  RealHiTBench = official_latex
   SpreadsheetBench = json_cells
 
 llm_router_single:

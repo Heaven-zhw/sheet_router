@@ -23,7 +23,6 @@ repo_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 QA_PRIORITY = (
-    "official_latex",
     "latex",
     "json_cells",
     "markdown",
@@ -48,7 +47,6 @@ MANIPULATION_PRIORITY = (
     "default_image",
 )
 QA_BASE_SCORES = {
-    "official_latex": 3.0,
     "latex": 3.0,
     "json_cells": 2.6,
     "markdown": 2.4,
@@ -374,17 +372,19 @@ class SingleResponseHeuristicRouter:
 
     def _route_realhit(self, item: Dict[str, Any], profile: Dict[str, Any]) -> RouteDecision:
         query = item.get("Question", "")
-        features = self._extract_common_features("realhitbench", query, item, profile)
         available = build_available_formats(profile)
+        available.discard("official_latex")
+        features = self._extract_common_features("realhitbench", query, item, profile)
+        features["available_formats"] = sorted(available)
         scores = copy.deepcopy(QA_BASE_SCORES)
         self._apply_common_scores("realhitbench", scores, features)
 
         if features["numeric_query"]:
-            scores["official_latex"] += 1.0
+            scores["latex"] += 1.0
             scores["json_cells"] += 0.6
         if features["structure_query"]:
             scores["json_cells"] += 1.2
-            scores["official_latex"] += 0.8
+            scores["latex"] += 0.8
             scores["markdown"] -= 0.3
         if features["coordinate_query"]:
             scores["json_cells"] += 1.5
@@ -395,7 +395,7 @@ class SingleResponseHeuristicRouter:
             scores["markdown"] += 1.0
 
         rule = "score"
-        reasons = ["QA/CoT uses official_latex as the default single representation."]
+        reasons = ["QA/CoT uses latex as the default single representation."]
         visual_format = self._strong_visual_route("realhitbench", available, features)
         if visual_format:
             table_format = visual_format
@@ -409,11 +409,11 @@ class SingleResponseHeuristicRouter:
                 reasons.append("Record-like filtering or matching signals favor json_rows.")
             elif table_format == "markdown":
                 reasons.append("Small/simple table signals favor markdown.")
-            elif table_format != "official_latex":
+            elif table_format != "latex":
                 reasons.append(f"Selected {table_format} after availability and token-budget scoring.")
 
         if features["is_large"] and table_format in {"markdown", "html", "dataframe"}:
-            compact = "json_cells" if features["is_sparse"] else first_available(("official_latex", "latex", "csv"), available)
+            compact = "json_cells" if features["is_sparse"] else first_available(("latex", "csv"), available)
             if compact and compact in available:
                 table_format = compact
                 rule = "Rule D: token protection"

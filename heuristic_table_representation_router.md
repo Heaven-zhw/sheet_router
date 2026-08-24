@@ -6,7 +6,7 @@
 
 现有统计给出的强信号如下。
 
-- QA 任务中，文本格式整体比纯图像稳定。跨模型平均看，`latex` 是最稳默认；`json_cells` 和 `markdown` 紧随其后。
+- QA 任务中，文本格式整体比纯图像稳定。跨模型平均看，`official_latex` 是最稳默认；`json_cells` 和 `markdown` 紧随其后。
 - QA 任务的 oracle 明显高于任何单一格式，说明格式选择有空间；但纯图像不是通用默认，只应在视觉/样式信息重要时触发。
 - Manipulation/PoT 中，`json_cells` 是最稳默认：平均 hard_all 最高、平均排名第一，并且 execution/valid 也更稳。
 - Manipulation 中 `json_rows` 是 `json_cells` 后最有价值的文本候选，适合行记录式操作；图像格式主要用于样式、布局、格式参考等文本序列化丢失的信息。
@@ -19,13 +19,13 @@
 QA/CoT 候选：
 
 ```text
-latex > json_cells > markdown > json_rows > html > dataframe > csv > image > excel_1_image > default_image
+official_latex > json_cells > markdown > json_rows > html > dataframe > csv > image > excel_1_image > default_image
 ```
 
 Manipulation/PoT 候选：
 
 ```text
-json_cells > json_rows > markdown > latex > html > dataframe > csv > excel_1_image > image > default_image
+json_cells > json_rows > markdown > official_latex > html > dataframe > csv > excel_1_image > image > default_image
 ```
 
 图像内部优先级：
@@ -87,7 +87,7 @@ if dataset == RealHiTBench: choose first available of [image, excel_1_image, def
 if dataset == SpreadsheetBench: choose first available of [excel_1_image, image, default_image]
 ```
 
-注意：如果只是普通 merged headers，不算强视觉样式；优先交给 `latex` 或 `json_cells`。
+注意：如果只是普通 merged headers，不算强视觉样式；优先交给 `official_latex` 或 `json_cells`。
 
 ### Rule B: Manipulation/PoT 默认
 
@@ -119,23 +119,23 @@ json_cells
 RealHiTBench 默认选择：
 
 ```text
-latex
+official_latex
 ```
 
-从 `latex` 切到 `json_cells` 的条件：
+从 `official_latex` 切到 `json_cells` 的条件：
 
 - `structure_query = true` 且问题强调具体行列位置、层级表头、单元格定位
 - `coordinate_query = true`
 - 表格很稀疏，或 used range 很大但非空单元格较少
 - LaTeX 不可用或估计 token 明显超预算
 
-从 `latex` 切到 `json_rows` 的条件：
+从 `official_latex` 切到 `json_rows` 的条件：
 
 - `record_query = true`
 - 问题更像数据库行检索/过滤，而不是表头层级理解
 - 表格是规则矩形表，第一行/前几行表头清晰
 
-从 `latex` 切到 `markdown` 的条件：
+从 `official_latex` 切到 `markdown` 的条件：
 
 - 表格很小：行数 <= 20 且列数 <= 8
 - 无合并单元格或复杂层级表头
@@ -148,7 +148,7 @@ latex
 ```text
 if is_sparse: json_cells
 elif task == manipulation: json_rows
-elif latex available and not too long: latex
+elif official_latex available and not too long: official_latex
 else: csv
 ```
 
@@ -164,7 +164,7 @@ QA/CoT:
 
 ```python
 base = {
-    "latex": 3.0,
+    "official_latex": 3.0,
     "json_cells": 2.6,
     "markdown": 2.4,
     "json_rows": 2.0,
@@ -184,7 +184,7 @@ base = {
     "json_cells": 4.0,
     "json_rows": 3.2,
     "markdown": 2.4,
-    "latex": 2.3,
+    "official_latex": 2.3,
     "html": 2.0,
     "dataframe": 1.8,
     "csv": 1.6,
@@ -218,11 +218,11 @@ QA/CoT：
 
 ```python
 if numeric_query:
-    latex += 1.0
+    official_latex += 1.0
     json_cells += 0.6
 if structure_query:
     json_cells += 1.2
-    latex += 0.8
+    official_latex += 0.8
     markdown -= 0.3
 if coordinate_query:
     json_cells += 1.5
@@ -271,8 +271,8 @@ else:
 同分时按候选优先级排序：
 
 ```text
-QA: latex > json_cells > markdown > json_rows > html > dataframe > csv > image > excel_1_image > default_image
-Manipulation: json_cells > json_rows > markdown > latex > html > dataframe > csv > excel_1_image > image > default_image
+QA: official_latex > json_cells > markdown > json_rows > html > dataframe > csv > image > excel_1_image > default_image
+Manipulation: json_cells > json_rows > markdown > official_latex > html > dataframe > csv > excel_1_image > image > default_image
 ```
 
 如果最高格式不可用，选择下一个可用格式。
@@ -309,7 +309,7 @@ def route_table_format(
 ## 7. 预期错误与诊断
 
 - 图像误触发：如果只因为“format”一词就选图像，可能会损失大量 PoT 代码可执行性。需要区分 output format/answer format 和 spreadsheet visual format。
-- JSON 过度触发：如果 QA 的普通数值题全部走 JSON，可能损失 `latex` 对复杂表头的表达优势。QA 默认仍应是 `latex`。
+- JSON 过度触发：如果 QA 的普通数值题全部走 JSON，可能损失 `official_latex` 对复杂表头的表达优势。QA 默认仍应是 `official_latex`。
 - `json_rows` 误用于稀疏表：行向 JSON 会保留大量空字符串，干扰代码生成；稀疏表优先 `json_cells`。
 - `default_image` 误优先：它是兜底渲染，不是优先视觉源。
 - 大表截断：如果路由选中会被截断的文本格式，应该在调用模型前重新路由，而不是静默截断。
@@ -318,7 +318,7 @@ def route_table_format(
 
 后续实现后，先比较三条线：
 
-- `best_single_default`：QA 固定 `latex`，Manipulation 固定 `json_cells`。
+- `best_single_default`：QA 固定 `official_latex`，Manipulation 固定 `json_cells`。
 - `heuristic_router`：本文规则。
 - `oracle`：任一格式正确即正确。
 
