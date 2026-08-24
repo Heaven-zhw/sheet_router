@@ -392,9 +392,9 @@ class SpreadsheetProfiler:
         profile = profile_workbook(xlsx_path, token_hint_path=latex_path)
         raw_images = find_realhit_images(item.get("image_dir"), file_name)
         excel_images = find_realhit_images(item.get("excel_1_image_dir"), file_name)
-        available_text = ["markdown", "html", "csv", "tsv", "dataframe", "json_rows", "json_cells"]
+        available_text = ["latex", "markdown", "html", "csv", "tsv", "dataframe", "json_rows", "json_cells"]
         if latex_path and os.path.exists(latex_path):
-            available_text.insert(0, "latex")
+            available_text.insert(0, "official_latex")
 
         profile.update(
             {
@@ -418,7 +418,7 @@ class SpreadsheetProfiler:
                     "excel_1_image": len(excel_images),
                     "default_image": int(profile.get("num_sheets") or 0),
                 },
-                "latex_available": bool(latex_path and os.path.exists(latex_path)),
+                "official_latex_available": bool(latex_path and os.path.exists(latex_path)),
             }
         )
         profile["truncation_risk"] = bool(

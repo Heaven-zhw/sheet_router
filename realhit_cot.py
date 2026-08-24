@@ -267,7 +267,7 @@ def parse_args():
     parser.add_argument(
         "--table_format",
         type=str,
-        default="latex",
+        default="official_latex",
         choices=SUPPORTED_TABLE_FORMATS,
         help="Spreadsheet input representation passed to the LLM.",
     )

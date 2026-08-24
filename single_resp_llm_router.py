@@ -39,6 +39,7 @@ repo_dir = os.path.abspath(os.path.dirname(__file__))
 
 SINGLE_FORMATS = (
     "markdown",
+    "official_latex",
     "latex",
     "html",
     "csv",
@@ -49,9 +50,10 @@ SINGLE_FORMATS = (
     "excel_1_image",
     "default_image",
 )
-TEXT_FORMATS = {"markdown", "latex", "html", "csv", "dataframe", "json_rows", "json_cells"}
+TEXT_FORMATS = {"markdown", "official_latex", "latex", "html", "csv", "dataframe", "json_rows", "json_cells"}
 IMAGE_FORMATS = {"image", "excel_1_image", "default_image"}
 QA_PRIORITY = (
+    "official_latex",
     "latex",
     "json_cells",
     "markdown",
@@ -76,6 +78,7 @@ MANIPULATION_PRIORITY = (
     "default_image",
 )
 QA_BASE_SCORES = {
+    "official_latex": 3.0,
     "latex": 3.0,
     "json_cells": 2.6,
     "markdown": 2.3,
@@ -322,7 +325,7 @@ def priority_for_task(task_mode: str) -> Tuple[str, ...]:
 
 
 def default_for_task(task_mode: str) -> str:
-    return "latex" if task_mode == "qa_cot" else "json_cells"
+    return "official_latex" if task_mode == "qa_cot" else "json_cells"
 
 
 def image_priority(dataset: str) -> Tuple[str, ...]:
@@ -577,6 +580,7 @@ def estimate_format_tokens(profile: Dict[str, Any], available_formats: Sequence[
         "html": text_chars + used_cells * 18 + rows * 20,
         "json_rows": text_chars + used_cells * 8 + rows * 26 + merged * 30,
         "json_cells": text_chars + nonempty * 55 + merged * 30,
+        "official_latex": text_chars + used_cells * 4 + merged * 35,
         "latex": text_chars + used_cells * 4 + merged * 35,
     }
     out = {}
@@ -682,7 +686,7 @@ def all_text_formats_too_long(routing_input: Dict[str, Any], available: Set[str]
 
 def compact_text_fallback(task_mode: str, routing_input: Dict[str, Any], available: Set[str]) -> Optional[str]:
     if task_mode == "qa_cot":
-        order = ("json_cells", "latex", "csv", "json_rows", "markdown", "dataframe", "html")
+        order = ("json_cells", "official_latex", "latex", "csv", "json_rows", "markdown", "dataframe", "html")
     else:
         order = ("json_cells", "json_rows", "csv", "markdown", "latex", "dataframe", "html")
     for fmt in order:
@@ -770,7 +774,10 @@ def score_formats(needs: Dict[str, bool], routing_input: Dict[str, Any]) -> Dict
         scores["json_rows"] += 2.0
         scores["markdown"] += 0.4
     if needs["complex_headers"]:
-        scores["latex"] += 1.3 if task_mode == "qa_cot" else 0.2
+        if task_mode == "qa_cot":
+            scores["official_latex"] += 1.3
+        else:
+            scores["latex"] += 0.2
         scores["json_cells"] += 1.0
         scores["markdown"] -= 0.4
     if needs["sparse_or_large"]:
@@ -782,7 +789,8 @@ def score_formats(needs: Dict[str, bool], routing_input: Dict[str, Any]) -> Dict
     if needs["multi_sheet"]:
         scores["json_cells"] += 0.9
     if needs["numeric_reasoning"]:
-        scores["latex"] += 0.8 if task_mode == "qa_cot" else 0.0
+        if task_mode == "qa_cot":
+            scores["official_latex"] += 0.8
         scores["json_cells"] += 0.5
 
     dense = float(profile.get("density") or 0.0) >= 0.35

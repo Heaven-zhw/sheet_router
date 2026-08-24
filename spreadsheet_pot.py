@@ -46,7 +46,6 @@ def get_dataset(args, output_dir):
 
     image_root = os.path.join(dataset_root, "image")
     excel_1_image_root = os.path.join(dataset_root, "excel_1_images")
-    latex_root = os.path.join(dataset_root, "latex")
 
     outs = []
     for item in data:
@@ -70,7 +69,6 @@ def get_dataset(args, output_dir):
                 "output_path": f"/mnt/data/output/{output_file}",
                 "real_dir": real_dir,
                 "dataset_root": dataset_root,
-                "latex_dir": os.path.join(latex_root, str(item["id"])) if os.path.isdir(latex_root) else None,
                 "image_dir": resolve_image_dir(image_root, item["id"]),
                 "excel_1_image_dir": resolve_image_dir(excel_1_image_root, item["id"]),
                 "image_cache_dir": os.path.join(output_dir, "table_images"),

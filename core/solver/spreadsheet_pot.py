@@ -20,7 +20,7 @@ from ..client import ClientJupyterKernel, extract_code
 from ..eval.spreadsheet import compare_workbooks
 from ..excel2image_linux import render_excel_range_to_png
 from ..excel2tex import convert_excel_to_latex
-from ..utils import model_resp, read_text_with_encoding_fallback
+from ..utils import model_resp
 
 
 SPREADSHEET_DATA_SPLITS = {
@@ -250,7 +250,6 @@ class SpreadsheetTableInputBuilder:
     def __init__(
         self,
         real_dir: str,
-        latex_dir: Optional[str] = None,
         image_dir: Optional[str] = None,
         excel_1_image_dir: Optional[str] = None,
         table_format: str = "markdown",
@@ -264,7 +263,6 @@ class SpreadsheetTableInputBuilder:
             raise ValueError(f"Unsupported table_format `{table_format}`. Choices: {SUPPORTED_TABLE_FORMATS}")
 
         self.real_dir = real_dir
-        self.latex_dir = latex_dir
         self.image_dir = image_dir
         self.excel_1_image_dir = excel_1_image_dir
         self.table_format = table_format
@@ -312,7 +310,7 @@ class SpreadsheetTableInputBuilder:
     def _build_table_text(self, input_file: str, xlsx_path: str, table_format: Optional[str] = None) -> str:
         table_format = table_format or self.table_format
         if table_format == "latex":
-            return self._serialize_latex_workbook(input_file, xlsx_path)
+            return self._serialize_latex_workbook(xlsx_path)
 
         wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=False)
         parts = []
@@ -339,17 +337,7 @@ class SpreadsheetTableInputBuilder:
             wb.close()
         return "\n\n".join(parts)
 
-    def _serialize_latex_workbook(self, input_file: str, xlsx_path: str) -> str:
-        basename = os.path.splitext(input_file)[0]
-        if self.latex_dir:
-            latex_candidates = [
-                os.path.join(self.latex_dir, f"{basename}.txt"),
-                os.path.join(self.latex_dir, input_file.replace(".xlsx", ".txt")),
-            ]
-            for latex_path in latex_candidates:
-                if os.path.exists(latex_path):
-                    return read_text_with_encoding_fallback(latex_path)
-
+    def _serialize_latex_workbook(self, xlsx_path: str) -> str:
         wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=False)
         parts = []
         try:
@@ -650,7 +638,6 @@ class SpreadSheetPoTSolver:
     def _builder(self, data: Dict[str, Any]) -> SpreadsheetTableInputBuilder:
         return SpreadsheetTableInputBuilder(
             real_dir=data["real_dir"],
-            latex_dir=data.get("latex_dir"),
             image_dir=data.get("image_dir"),
             excel_1_image_dir=data.get("excel_1_image_dir"),
             table_format=self.table_format,

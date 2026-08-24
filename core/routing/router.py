@@ -29,8 +29,8 @@ class HeuristicRouter:
         available = set(profile.get("available_text_formats") or [])
         if preferred and preferred != "auto" and preferred in available:
             return preferred
-        if default_text == "latex" and "latex" in available:
-            return "latex"
+        if default_text == "official_latex" and "official_latex" in available:
+            return "official_latex"
         if default_text in available:
             return default_text
         return next(iter(available), default_text)
@@ -49,7 +49,7 @@ class HeuristicRouter:
     def _text_image_format(self, text_format: str, image_format: Optional[str]) -> Optional[str]:
         if not image_format:
             return None
-        if text_format not in {"latex", "markdown", "html"}:
+        if text_format not in {"official_latex", "latex", "markdown", "html"}:
             text_format = "markdown"
         return f"{text_format}+{image_format}"
 
@@ -58,7 +58,7 @@ class HeuristicRouter:
         qtype = item.get("QuestionType") or ""
         sub_qtype = item.get("SubQType") or ""
         comp = item.get("CompStrucCata") or ""
-        text_format = self._best_text_format(profile, self.args.qa_text_format, "latex")
+        text_format = self._best_text_format(profile, self.args.qa_text_format, "official_latex")
         image_format = self._best_image_format(profile, ("image", "excel_1_image", "default_image"))
         text_image = self._text_image_format(text_format, image_format)
 
@@ -187,7 +187,7 @@ class BlackBoxHeuristicRouter(HeuristicRouter):
     def _route_realhit(self, item: Dict[str, Any], profile: Dict[str, Any]) -> RouteDecision:
         qf = query_features(item.get("Question", ""), "qa")
         text_format = self._best_text_format(profile, self.args.qa_text_format, "markdown")
-        if text_format == "latex" and self.args.qa_text_format == "auto":
+        if text_format == "official_latex" and self.args.qa_text_format == "auto":
             text_format = "markdown"
 
         image_format = self._best_image_format(profile, ("image", "excel_1_image", "default_image"))
@@ -239,9 +239,9 @@ class BlackBoxHeuristicRouter(HeuristicRouter):
         fallbacks = []
         if primary != text_format:
             fallbacks.append(text_format)
-        if image_format and text_format != "latex" and "latex" in set(profile.get("available_text_formats") or []):
-            fallbacks.append(self._text_image_format("latex", image_format))
-            fallbacks.append("latex")
+        if image_format and text_format != "official_latex" and "official_latex" in set(profile.get("available_text_formats") or []):
+            fallbacks.append(self._text_image_format("official_latex", image_format))
+            fallbacks.append("official_latex")
         if image_format != "excel_1_image" and "excel_1_image" in set(profile.get("available_image_formats") or []):
             excel_combo = self._text_image_format(text_format, "excel_1_image")
             if excel_combo != primary:

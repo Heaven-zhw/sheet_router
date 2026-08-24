@@ -18,6 +18,7 @@ from openpyxl.utils import get_column_letter
 import tiktoken
 
 from ..excel2image_linux import render_excel_range_to_png
+from ..excel2tex import convert_excel_to_latex
 from ..utils import model_resp, read_text_with_encoding_fallback
 from .metrics.qa_metrics import QAMetric
 from .realhit_cot_prompts import Answer_Prompt
@@ -26,6 +27,7 @@ from .realhit_cot_prompts import Answer_Prompt
 FINAL_ANSWER_PREFIX = "[Final Answer]:"
 
 SUPPORTED_TABLE_FORMATS = (
+    "official_latex",
     "latex",
     "csv",
     "tsv",
@@ -39,11 +41,14 @@ SUPPORTED_TABLE_FORMATS = (
     "default_image",
     "html+image",
     "markdown+image",
+    "official_latex+image",
     "latex+image",
     "html+excel_1_image",
+    "official_latex+excel_1_image",
     "latex+excel_1_image",
     "markdown+excel_1_image",
     "html+default_image",
+    "official_latex+default_image",
     "latex+default_image",
     "markdown+default_image",
 )
@@ -52,11 +57,14 @@ IMAGE_TABLE_FORMATS = {"image", "excel_1_image", "default_image"}
 TEXT_IMAGE_TABLE_FORMATS = {
     "html+image": ("html", "image"),
     "markdown+image": ("markdown", "image"),
+    "official_latex+image": ("official_latex", "image"),
     "latex+image": ("latex", "image"),
     "html+excel_1_image": ("html", "excel_1_image"),
+    "official_latex+excel_1_image": ("official_latex", "excel_1_image"),
     "latex+excel_1_image": ("latex", "excel_1_image"),
     "markdown+excel_1_image": ("markdown", "excel_1_image"),
     "html+default_image": ("html", "default_image"),
+    "official_latex+default_image": ("official_latex", "default_image"),
     "latex+default_image": ("latex", "default_image"),
     "markdown+default_image": ("markdown", "default_image"),
 }
@@ -322,7 +330,7 @@ def _spreadsheet_content_note(table_format: str) -> str:
         return "The spreadsheet content is provided as JSON. Preserve cell coordinates and worksheet names carefully."
     if table_format == "html":
         return "The spreadsheet content is provided as HTML tables. Each table records the worksheet name and used range."
-    if table_format == "latex":
+    if table_format in {"official_latex", "latex"}:
         return "The spreadsheet content is provided as LaTeX tables. Each worksheet section includes its used range."
     return "The spreadsheet content is provided as plain text. Each worksheet starts with its sheet name and used range."
 
@@ -334,7 +342,7 @@ class TableInputBuilder:
         latex_dir: str,
         image_dir: Optional[str] = None,
         excel_1_image_dir: Optional[str] = None,
-        table_format: str = "latex",
+        table_format: str = "official_latex",
         include_coordinates: bool = True,
         fill_merged: bool = False,
         max_text_tokens: int = 0,
@@ -394,13 +402,16 @@ class TableInputBuilder:
 
     def _build_table_text(self, file_name: str, xlsx_path: str, table_format: Optional[str] = None) -> str:
         table_format = table_format or self.table_format
-        # Latex格式，去读取原始文件
-        if table_format == "latex":
+        # official_latex 读取 RealHiTBench 官方提供的文本文件。
+        if table_format == "official_latex":
             latex_path = os.path.join(self.latex_dir, f"{file_name}.txt")
             if not os.path.exists(latex_path):
-                raise FileNotFoundError(f"LaTeX table representation not found: {latex_path}")
+                raise FileNotFoundError(f"Official LaTeX table representation not found: {latex_path}")
             return read_text_with_encoding_fallback(latex_path)
-        
+
+        if table_format == "latex":
+            return self._serialize_latex_workbook(xlsx_path)
+
         # 其他格式，基于excel文件进行转换
         wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=False)
         parts = []
@@ -423,6 +434,19 @@ class TableInputBuilder:
                 raise ValueError(f"Unsupported table_format: {table_format}")
             parts.append(f"## Sheet: {ws.title}\n{body}")
         wb.close()
+        return "\n\n".join(parts)
+
+    def _serialize_latex_workbook(self, xlsx_path: str) -> str:
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=False)
+        parts = []
+        try:
+            for ws in wb.worksheets:
+                bounds = self._used_bounds(ws)
+                cell_range = self._bounds_to_range(bounds)
+                body = convert_excel_to_latex(xlsx_path, ws.title, cell_range)
+                parts.append(f"## Sheet: {ws.title}\nUsed Range: {cell_range}\n{body}")
+        finally:
+            wb.close()
         return "\n\n".join(parts)
 
     def _build_image_text(
@@ -676,7 +700,7 @@ class RealHiTCoTSolver:
             "top_p": kwargs.get("top_p", 1.0),
             "temperature": kwargs.get("temperature", 0),
         }
-        self.table_format = kwargs.get("table_format", "latex")
+        self.table_format = kwargs.get("table_format", "official_latex")
         self.include_coordinates = kwargs.get("include_coordinates", True)
         self.fill_merged = kwargs.get("fill_merged", False)
         self.max_text_tokens = kwargs.get("max_text_tokens", 0)
