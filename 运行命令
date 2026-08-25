@@ -2,50 +2,6 @@
 cd /mnt/data/zhw/sheet_router/code_exec_docker
 bash start_jupyter_server.sh
 
-## RealHiTBench
-python dynamic_router.py \
-  --dataset realhitbench \
-  --base_url http://10.26.35.171:33370/v1 \
-  --api_key 1234 \
-  --model_name Qwen3.5-9B \
-  --workers 8 \
-  --max_retries 3
-
-## SpreadsheetBench
-python dynamic_router.py \
-  --dataset spreadsheetbench \
-  --data_split verified_400 \
-  --base_url http://10.26.35.171:33370/v1 \
-  --api_key 1234 \
-  --model_name Qwen3.5-9B \
-  --code_exec_url localhost:8081 \
-  --workers 4 \
-  --max_text_tokens 40000 \
-  --render_formulas_before_eval
-
-
-python dynamic_router.py \
-  --dataset realhitbench \
-  --router_policy blackbox_heuristic \
-  --base_url http://10.26.35.171:33370/v1 \
-  --api_key 1234 \
-  --model_name Qwen3.5-9B \
-  --workers 8 \
-  --max_retries 3
-
-python dynamic_router.py \
-  --dataset spreadsheetbench \
-  --data_split verified_400 \
-  --router_policy blackbox_heuristic \
-  --base_url http://10.26.35.171:33370/v1 \
-  --api_key 1234 \
-  --model_name Qwen3.5-9B \
-  --code_exec_url localhost:8081 \
-  --workers 4 \
-  --max_text_tokens 40000 \
-  --render_formulas_before_eval
-
-
 
 ####################################### 单模态的启发路由
 # Qwen3.5-9B 
