@@ -19,7 +19,13 @@ import tiktoken
 
 from ..excel2image_linux import render_excel_range_to_png
 from ..excel2tex import convert_excel_to_latex
-from ..utils import model_resp, read_text_with_encoding_fallback
+from ..utils import (
+    model_resp,
+    read_text_with_encoding_fallback,
+    select_logprob_summary,
+    summarize_choice_logprobs,
+    unavailable_logprob_summary,
+)
 from .metrics.qa_metrics import QAMetric
 from .realhit_cot_prompts import Answer_Prompt
 
@@ -706,7 +712,10 @@ class RealHiTCoTSolver:
         self.max_text_tokens = kwargs.get("max_text_tokens", 0)
         self.max_retries = kwargs.get("max_retries", 3)
         self.save_prompts = kwargs.get("save_prompts", False)
+        self.save_logprobs = kwargs.get("save_logprobs", False)
         self.dry_run = kwargs.get("dry_run", False)
+        if self.save_logprobs:
+            self.model_params["logprobs"] = True
 
     def _builder(self, data: Dict[str, Any]) -> TableInputBuilder:
         return TableInputBuilder(
@@ -755,6 +764,9 @@ class RealHiTCoTSolver:
         solution = ""
         error = None
         table_metadata: Dict[str, Any] = {}
+        final_logprob_summary = unavailable_logprob_summary(
+            "No format-valid attempt was produced."
+        )
 
         try:
             prompt, table_metadata = self.build_prompt(data)
@@ -773,31 +785,36 @@ class RealHiTCoTSolver:
                 content = ""
                 if resp and resp.get("message"):
                     content = resp["message"].get("content") or ""
+                attempt_logprob_summary = (
+                    summarize_choice_logprobs(resp) if self.save_logprobs else {}
+                )
 
                 solution = content
                 try:
                     parsed = parse_and_validate_response(content)
-                    attempts.append(
-                        {
-                            "attempt": attempt_idx,
-                            "valid": True,
-                            "response": content,
-                            "format_error": None,
-                        }
-                    )
+                    attempt = {
+                        "attempt": attempt_idx,
+                        "valid": True,
+                        "response": content,
+                        "format_error": None,
+                    }
+                    attempt.update(attempt_logprob_summary)
+                    attempts.append(attempt)
+                    if self.save_logprobs:
+                        final_logprob_summary = attempt_logprob_summary
                     messages.append({"role": "assistant", "content": content})
                     error = None
                     break
                 except ResponseFormatError as exc:
                     format_error = str(exc)
-                    attempts.append(
-                        {
-                            "attempt": attempt_idx,
-                            "valid": False,
-                            "response": content,
-                            "format_error": format_error,
-                        }
-                    )
+                    attempt = {
+                        "attempt": attempt_idx,
+                        "valid": False,
+                        "response": content,
+                        "format_error": format_error,
+                    }
+                    attempt.update(attempt_logprob_summary)
+                    attempts.append(attempt)
                     messages.append({"role": "assistant", "content": content})
                     messages.append(
                         {
@@ -824,6 +841,8 @@ class RealHiTCoTSolver:
                 "model_answer": parsed.final_answer if parsed else "",
             }
         )
+        if self.save_logprobs:
+            out.update(final_logprob_summary)
         if self.save_prompts:
             out["messages"] = messages
         return out
@@ -844,7 +863,7 @@ class RealHiTCoTSolver:
                 swap_data["FileName"] = f"{data['FileName']}_swap"
                 swap_result = self.get_solution(swap_data)
                 response = swap_result.get("model_answer", "")
-                result["structure_reference_run"] = {
+                reference_run = {
                     "FileName": data["FileName"],
                     "model_answer": reference,
                     "format_valid": result.get("format_valid"),
@@ -853,7 +872,7 @@ class RealHiTCoTSolver:
                     "parsed_response": result.get("parsed_response"),
                     "table_metadata": result.get("table_metadata"),
                 }
-                result["structure_swap_run"] = {
+                swap_run = {
                     "FileName": swap_data["FileName"],
                     "model_answer": response,
                     "format_valid": swap_result.get("format_valid"),
@@ -862,12 +881,19 @@ class RealHiTCoTSolver:
                     "parsed_response": swap_result.get("parsed_response"),
                     "table_metadata": swap_result.get("table_metadata"),
                 }
-                if reference and response:
-                    metric_scores = self._score_qa(reference, response)
+                if self.save_logprobs:
+                    reference_run.update(select_logprob_summary(result))
+                    swap_run.update(select_logprob_summary(swap_result))
+                result["structure_reference_run"] = reference_run
+                result["structure_swap_run"] = swap_run
                 result["solution"] = swap_result.get("solution", "")
                 result["model_answer"] = response
                 result["format_valid"] = bool(result.get("format_valid")) and bool(swap_result.get("format_valid"))
                 result["error"] = result.get("error") or swap_result.get("error")
+                if self.save_logprobs:
+                    result.update(select_logprob_summary(swap_result))
+                if reference and response:
+                    metric_scores = self._score_qa(reference, response)
             else:
                 if response:
                     metric_scores = self._score_qa(reference, response)

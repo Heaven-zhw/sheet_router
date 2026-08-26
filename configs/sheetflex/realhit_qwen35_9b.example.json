@@ -1,0 +1,8 @@
+{
+  "latex": "../../outs/realhitbench/Qwen3.5-9B/cot_latex_100ktoken",
+  "markdown": "../../outs/realhitbench/Qwen3.5-9B/cot_markdown_100ktoken",
+  "json_cells": "../../outs/realhitbench/Qwen3.5-9B/cot_json_cells_100ktoken",
+  "json_rows": "../../outs/realhitbench/Qwen3.5-9B/cot_json_rows_100ktoken",
+  "image": "../../outs/realhitbench/Qwen3.5-9B/cot_image_100ktoken",
+  "excel_1_image": "../../outs/realhitbench/Qwen3.5-9B/cot_excel_1_image_100ktoken"
+}

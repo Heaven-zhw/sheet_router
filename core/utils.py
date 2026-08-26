@@ -1,7 +1,95 @@
 import json
+import math
 import os
 import requests
-from typing import Sequence
+from collections.abc import Mapping
+from typing import Any, Dict, Sequence
+
+
+LOGPROB_SUMMARY_KEYS = (
+    "logprob_available",
+    "sequence_logprob_sum",
+    "sequence_logprob_mean",
+    "sequence_token_count",
+    "logprob_unavailable_reason",
+)
+
+
+def unavailable_logprob_summary(reason: str, token_count: int = 0) -> Dict[str, Any]:
+    return {
+        "logprob_available": False,
+        "sequence_logprob_sum": None,
+        "sequence_logprob_mean": None,
+        "sequence_token_count": token_count,
+        "logprob_unavailable_reason": reason,
+    }
+
+
+def _field(value, name, default=None):
+    if isinstance(value, Mapping):
+        return value.get(name, default)
+    return getattr(value, name, default)
+
+
+def summarize_choice_logprobs(choice) -> Dict[str, Any]:
+    """Summarize OpenAI/vLLM chat choice token log-probabilities."""
+    if choice is None:
+        return unavailable_logprob_summary("Model API returned no choice.")
+
+    request_reason = _field(choice, "_logprob_unavailable_reason")
+    logprobs = _field(choice, "logprobs")
+    if logprobs is None:
+        return unavailable_logprob_summary(
+            request_reason or "Model API response omitted choice.logprobs."
+        )
+
+    content = _field(logprobs, "content")
+    if content is None:
+        return unavailable_logprob_summary(
+            request_reason or "Model API response omitted choice.logprobs.content."
+        )
+    if not isinstance(content, (list, tuple)):
+        return unavailable_logprob_summary(
+            "choice.logprobs.content is not a token list."
+        )
+    if not content:
+        return unavailable_logprob_summary("choice.logprobs.content is empty.")
+
+    values = []
+    invalid_indices = []
+    for index, token_entry in enumerate(content):
+        value = _field(token_entry, "logprob")
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            invalid_indices.append(index)
+        else:
+            values.append(float(value))
+
+    token_count = len(content)
+    if invalid_indices:
+        preview = ", ".join(str(index) for index in invalid_indices[:5])
+        suffix = "..." if len(invalid_indices) > 5 else ""
+        return unavailable_logprob_summary(
+            f"Missing or invalid token logprob at content index(es): {preview}{suffix}.",
+            token_count=token_count,
+        )
+
+    sequence_sum = sum(values)
+    return {
+        "logprob_available": True,
+        "sequence_logprob_sum": sequence_sum,
+        "sequence_logprob_mean": sequence_sum / token_count,
+        "sequence_token_count": token_count,
+        "logprob_unavailable_reason": None,
+    }
+
+
+def select_logprob_summary(source: Mapping[str, Any]) -> Dict[str, Any]:
+    """Copy only persisted logprob summary fields from a result mapping."""
+    return {key: source.get(key) for key in LOGPROB_SUMMARY_KEYS}
 
 
 def read_text_with_encoding_fallback(path, encodings: Sequence[str] = ("utf-8", "gb18030", "cp1252", "latin-1")):
@@ -58,6 +146,17 @@ def _auth_headers():
     return {"Authorization": f"Bearer {api_key}"}
 
 
+def _api_error_message(response):
+    if not isinstance(response, Mapping):
+        return "API returned a response without choices"
+    error = response.get("error")
+    if isinstance(error, Mapping):
+        return str(error.get("message") or error)
+    if error:
+        return str(error)
+    return "API returned a response without choices"
+
+
 def model_resp(
     url, 
     messages, 
@@ -81,6 +180,8 @@ def model_resp(
     if model_params:
         parameters.update(model_params)
 
+    requested_logprobs = bool(parameters.get("logprobs"))
+
     for _ in range(3):
         try:
             resp = requests.post(
@@ -90,9 +191,32 @@ def model_resp(
                 verify=False,
             ).json()
 
-            if 'choices' in resp:
-                resp = resp['choices'][0]
-                return resp
+            if resp.get("choices"):
+                choice = resp["choices"][0]
+                if requested_logprobs and choice.get("logprobs") is None:
+                    choice = dict(choice)
+                    choice["_logprob_unavailable_reason"] = (
+                        "Model API response omitted choice.logprobs."
+                    )
+                return choice
+
+            if requested_logprobs:
+                fallback_parameters = dict(parameters)
+                fallback_parameters.pop("logprobs", None)
+                fallback_parameters.pop("top_logprobs", None)
+                fallback_resp = requests.post(
+                    url=_chat_completions_url(url),
+                    json=fallback_parameters,
+                    headers=_auth_headers(),
+                    verify=False,
+                ).json()
+                if fallback_resp.get("choices"):
+                    choice = dict(fallback_resp["choices"][0])
+                    choice["_logprob_unavailable_reason"] = (
+                        "Logprobs request was rejected; generation retried without "
+                        f"logprobs: {_api_error_message(resp)}"
+                    )
+                    return choice
         except:
             import traceback
             traceback.print_exc()

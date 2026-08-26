@@ -20,7 +20,11 @@ from ..client import ClientJupyterKernel, extract_code
 from ..eval.spreadsheet import compare_workbooks
 from ..excel2image_linux import render_excel_range_to_png
 from ..excel2tex import convert_excel_to_latex
-from ..utils import model_resp
+from ..utils import (
+    model_resp,
+    summarize_choice_logprobs,
+    unavailable_logprob_summary,
+)
 
 
 SPREADSHEET_DATA_SPLITS = {
@@ -630,10 +634,13 @@ class SpreadSheetPoTSolver:
         self.max_retries = kwargs.get("max_retries", 3)
         self.render_formulas_before_eval = kwargs.get("render_formulas_before_eval", False)
         self.save_prompts = kwargs.get("save_prompts", False)
+        self.save_logprobs = kwargs.get("save_logprobs", False)
         self.dry_run = kwargs.get("dry_run", False)
         self.output_dir = kwargs.get("output_dir")
         self.data_split = kwargs.get("data_split", "all_912")
         self.split_config = SPREADSHEET_DATA_SPLITS.get(self.data_split, SPREADSHEET_DATA_SPLITS["all_912"])
+        if self.save_logprobs:
+            self.model_params["logprobs"] = True
 
     def _builder(self, data: Dict[str, Any]) -> SpreadsheetTableInputBuilder:
         return SpreadsheetTableInputBuilder(
@@ -676,6 +683,9 @@ class SpreadSheetPoTSolver:
         table_metadata: Dict[str, Any] = {}
         error = None
         success = False
+        final_logprob_summary = unavailable_logprob_summary(
+            "No successful output-producing attempt was produced."
+        )
 
         try:
             prompt, table_metadata = self.build_prompt(data)
@@ -690,6 +700,7 @@ class SpreadSheetPoTSolver:
                 execution_output = ""
                 attempt_error = None
                 output_created = False
+                resp = None
 
                 try:
                     resp = model_resp(
@@ -725,17 +736,21 @@ class SpreadSheetPoTSolver:
                     if code:
                         solution = code
 
-                attempts.append(
-                    {
-                        "attempt": attempt_idx,
-                        "success": success,
-                        "response": content,
-                        "code": code,
-                        "execution_output": execution_output,
-                        "output_created": output_created,
-                        "error": attempt_error,
-                    }
-                )
+                attempt = {
+                    "attempt": attempt_idx,
+                    "success": success,
+                    "response": content,
+                    "code": code,
+                    "execution_output": execution_output,
+                    "output_created": output_created,
+                    "error": attempt_error,
+                }
+                if self.save_logprobs:
+                    attempt_logprob_summary = summarize_choice_logprobs(resp)
+                    attempt.update(attempt_logprob_summary)
+                    if success and output_created:
+                        final_logprob_summary = attempt_logprob_summary
+                attempts.append(attempt)
 
                 if success:
                     break
@@ -766,6 +781,8 @@ class SpreadSheetPoTSolver:
                 "solution": solution,
             }
         )
+        if self.save_logprobs:
+            result.update(final_logprob_summary)
         if self.save_prompts:
             result["messages"] = messages
         return result
@@ -896,6 +913,12 @@ class SpreadSheetPoTSolver:
                     "total_hard_restriction": 0.0,
                 }
             )
+            if self.save_logprobs:
+                out.update(
+                    unavailable_logprob_summary(
+                        "Solver failed before producing a successful output workbook."
+                    )
+                )
             return out
 
 

@@ -132,6 +132,8 @@ def build_eval_entry(result):
 
 def build_suffix(args):
     parts = ["pot", args.table_format]
+    if args.save_logprobs:
+        parts.append("logprobs")
     if args.fill_merged:
         parts.append("fillmerged")
     if not args.include_coordinates:
@@ -308,6 +310,12 @@ def parse_args():
     parser.add_argument("--report_every", type=int, default=10)
     parser.add_argument("--save_every", type=int, default=10)
     parser.add_argument("--save_prompts", action="store_true")
+    parser.add_argument(
+        "--save_logprobs",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Request token log-probabilities and save only sequence-level summaries.",
+    )
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--resume", action="store_true", help="Resume from partial result files in the output directory.")
     parser.add_argument("-s", "--suffix", type=str, default=None)
