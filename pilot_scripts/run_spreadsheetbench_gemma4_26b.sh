@@ -2,35 +2,31 @@
 set -euo pipefail
 
 # Start code executor first:
-# cd /mnt/data/zhw/sheet_router/code_exec_docker
+# cd code_exec_docker
 # bash start_jupyter_server.sh
 
-REPO_DIR="${REPO_DIR:-$(pwd)}"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="${REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
+
 # RUN_TAG="${RUN_TAG:-rerun}"
 WORKERS="${WORKERS:-8}"
 CODE_EXEC_URL="${CODE_EXEC_URL:-localhost:8081}"
 
-MODEL="Qwen3.5-9B"
-URL="10.26.35.171:33370"
+MODEL="gemma-4-26B-A4B-it"
+URL="10.26.33.169:33375"
 MAX_TEXT_TOKENS=40000
-
-# FORMATS=(
-#   latex 
-#   markdown 
-#   html 
-#   csv 
-#   dataframe 
-#   json_rows 
-#   json_cells 
-#   image
-#   excel_1_image 
-#   default_image
-# )
 FORMATS=(
+  latex 
+  markdown 
+  html 
+  csv 
+  dataframe 
+  json_rows 
+  json_cells 
   image
+  excel_1_image 
+  default_image
 )
-
 cd "$REPO_DIR"
 
 for FORMAT in "${FORMATS[@]}"; do
@@ -38,7 +34,7 @@ for FORMAT in "${FORMATS[@]}"; do
   echo "[SpreadsheetBench verified_400] model=$MODEL format=$FORMAT"
   echo "============================================================"
 
-  "$PYTHON_BIN" spreadsheet_pot.py \
+  python spreadsheet_pot.py \
     --url "$URL" \
     --model_name "$MODEL" \
     --table_format "$FORMAT" \

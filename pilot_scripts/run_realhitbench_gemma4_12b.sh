@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="${REPO_DIR:-$(pwd)}"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="${REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
+
 # RUN_TAG="${RUN_TAG:-rerun}"
 WORKERS="${WORKERS:-8}"
 
-MODEL="gemma-3-12b-it"
-URL="10.26.33.169:33373"
+MODEL="gemma-4-12B-it"
+URL="10.26.33.169:33374"
 MAX_TEXT_TOKENS=100000
 # FORMATS=(
 #   official_latex
@@ -32,7 +33,7 @@ for FORMAT in "${FORMATS[@]}"; do
   echo "[RealHiTBench] model=$MODEL format=$FORMAT"
   echo "============================================================"
 
-  "$PYTHON_BIN" realhit_cot.py \
+  python realhit_cot.py \
     --url "$URL" \
     --model_name "$MODEL" \
     --table_format "$FORMAT" \

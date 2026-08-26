@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="${REPO_DIR:-$(pwd)}"
-PYTHON_BIN="${PYTHON_BIN:-python}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="${REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
+
 # RUN_TAG="${RUN_TAG:-rerun}"
 WORKERS="${WORKERS:-8}"
 
@@ -32,7 +33,7 @@ for FORMAT in "${FORMATS[@]}"; do
   echo "[RealHiTBench] model=$MODEL format=$FORMAT"
   echo "============================================================"
 
-  "$PYTHON_BIN" realhit_cot.py \
+  python realhit_cot.py \
     --url "$URL" \
     --model_name "$MODEL" \
     --table_format "$FORMAT" \
