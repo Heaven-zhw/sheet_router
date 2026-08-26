@@ -864,6 +864,7 @@ class SpreadSheetPoTSolver:
                     local_output_file,
                     result.get("instruction_type", ""),
                     result.get("answer_position", ""),
+                    result.get("answer_sheet", ""),
                 )
             except Exception:
                 passed, message = 0, traceback.format_exc()

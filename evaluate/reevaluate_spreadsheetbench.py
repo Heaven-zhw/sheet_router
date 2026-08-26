@@ -158,6 +158,7 @@ def compare_one_sample(item, dataset_root, split_config, spreadsheet_dir, previo
                     str(proc_file),
                     item.get("instruction_type", ""),
                     item.get("answer_position", ""),
+                    item.get("answer_sheet", ""),
                 )
             except Exception:
                 ok = False
@@ -189,6 +190,8 @@ def compare_one_sample(item, dataset_root, split_config, spreadsheet_dir, previo
 def output_paths(run_dir, tag, overwrite):
     if overwrite:
         return run_dir / "spreadsheet_pot_eval.json", run_dir / "spreadsheet_pot_accuracy.json"
+    if not tag:
+        raise ValueError("--output_tag must be non-empty unless --overwrite is explicitly used")
     suffix = f"_{tag}" if tag else ""
     return run_dir / f"spreadsheet_pot_eval{suffix}.json", run_dir / f"spreadsheet_pot_accuracy{suffix}.json"
 
@@ -196,6 +199,15 @@ def output_paths(run_dir, tag, overwrite):
 def evaluate_run(run_dir, data, dataset_root, split_config, args):
     spreadsheet_dir = run_dir / "spreadsheet"
     previous_eval = load_previous_eval(run_dir)
+    eval_path, accuracy_path = output_paths(run_dir, args.output_tag, args.overwrite)
+    if not args.overwrite:
+        existing = [str(path) for path in (eval_path, accuracy_path) if path.exists()]
+        if existing:
+            raise FileExistsError(
+                "Refusing to overwrite existing re-evaluation output(s): "
+                + ", ".join(existing)
+                + ". Choose a new --output_tag."
+            )
     eval_results = []
     score_lists = defaultdict(list)
 
@@ -206,9 +218,18 @@ def evaluate_run(run_dir, data, dataset_root, split_config, args):
         add_scores(score_lists, result)
 
     scores = average_scores(score_lists)
-    eval_path, accuracy_path = output_paths(run_dir, args.output_tag, args.overwrite)
     save_json(eval_results, eval_path)
     save_json(scores, accuracy_path)
+
+    changed_sample_ids = []
+    comparable_samples = 0
+    for result in eval_results:
+        previous = previous_eval.get(str(result["id"]))
+        if not previous or not isinstance(previous.get("test_case_results"), list):
+            continue
+        comparable_samples += 1
+        if previous["test_case_results"] != result["test_case_results"]:
+            changed_sample_ids.append(str(result["id"]))
 
     return {
         "run": run_dir.name,
@@ -216,6 +237,9 @@ def evaluate_run(run_dir, data, dataset_root, split_config, args):
         "eval_path": str(eval_path),
         "accuracy_path": str(accuracy_path),
         "scores": scores,
+        "legacy_comparable_samples": comparable_samples,
+        "changed_from_legacy_count": len(changed_sample_ids),
+        "changed_from_legacy_sample_ids": changed_sample_ids,
     }
 
 
@@ -259,10 +283,15 @@ def main():
         raise SystemExit(f"No result folders found under {args.results_root}")
 
     summaries = []
+    summary_path = Path(args.results_root) / f"spreadsheet_pot_reeval_summary_{args.output_tag}.json"
+    if summary_path.exists() and not args.overwrite:
+        raise FileExistsError(
+            f"Refusing to overwrite existing summary: {summary_path}. "
+            "Choose a new --output_tag."
+        )
     for run_dir in run_dirs:
         summaries.append(evaluate_run(run_dir, data, dataset_root, split_config, args))
 
-    summary_path = Path(args.results_root) / f"spreadsheet_pot_reeval_summary_{args.output_tag}.json"
     save_json(summaries, summary_path)
 
     print("\nRe-evaluation summary:")
@@ -272,6 +301,8 @@ def main():
             f"- {summary['run']}: "
             f"soft_all={scores.get('soft_all', 0):.4f}, "
             f"hard_all={scores.get('hard_all', 0):.4f}, "
+            f"changed_from_legacy={summary['changed_from_legacy_count']}/"
+            f"{summary['legacy_comparable_samples']}, "
             f"eval={summary['eval_path']}"
         )
     print(f"Summary saved to {summary_path}")
