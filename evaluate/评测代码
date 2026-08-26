@@ -7,3 +7,38 @@ reevaluate_spreadsheetbench.py：对于没有做打开文件操作的评测结�
 /mnt/data/zhw/sheet_router/evaluate/reevaluate_spreadsheetbench.py
 /mnt/data/zhw/sheet_router/evaluate/summarize_spreadsheetbench_by_sheet_count.py
 目前默认读取的文件是spreadsheet_pot_accuracy.json
+
+
+22060827 对SpreadsheetBench做评测的修改 
+原评测逻辑主要有这些问题：
+1. 多区域只比较最后一个区域
+for sheet_cell_range in answer_position.split(","):
+    ...
+result, msg = cell_level_compare(...)
+真正的比较调用写在循环外。因此例如 41-47 的四个区域，legacy 只检查最后一个 L2:O8。前三个区域即使完全错误，也可能被判成功。
+2. 忽略 answer_sheet
+当 answer_position 没有显式 sheet 时，legacy 固定使用 golden 的第一个工作表：
+sheet_name = wb_gt.sheetnames[0]
+例如 13-1 的目标是 LISTS!A3:D32，但第一个表是 RANGES。旧评测实际检查了错误的工作表。修复后，已有某个 dataframe 输出从通过变为失败，因为现在正确发现 LISTS!A3 不一致。
+3. 不支持 A:G 整列范围
+旧解析器强制把行号转成整数，遇到 A:G 会直接报错。因此 283-32 不论输出是否正确，legacy 都无法正常评测。新 evaluator 使用 gold 和 generated 的较大 max_row 作为有限边界。
+4. sheet 引号处理不完整
+数据集中存在多种真实格式：
+OUT CAS'!A2:C1529
+'Sheet1'!'A2:A85
+'PL Recon Items!'A1:D2
+'99250!A1:F9'
+旧逻辑只处理 sheet 名两端最简单的一对单引号，一些本来可以明确解析的区域会报错。
+5. 含逗号的 sheet 名会被错误拆分
+例如：
+'b2b, sez, de'!A5:V10
+直接按逗号拆分会把一个 sheet 名拆成多个区域。
+6. 非法范围可能“空通过”
+BD2:308 缺少结束列名。legacy 会生成空坐标列表，循环一次都不执行，最后返回成功。新 evaluator 明确返回非法范围错误。
+7. 资源和错误处理不完整
+legacy 没有可靠关闭 workbook；缺失 golden、损坏文件和解析异常也没有统一的清晰错误结果。
+在当前 Qwen3.5-9B 的 10 个格式运行上，重新评测 4000 个“格式 × 样例”结果后：
+- 23 个判定发生变化；
+- 涉及 9 个唯一样例；
+- 15 个由失败变为通过；
+- 8 个由通过变为失败。
