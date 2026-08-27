@@ -1,0 +1,8 @@
+{
+  "latex": "/mnt/data/zhw/sheet_router/outs/spreadsheetbench_verified_400/Qwen3-VL-30B-A3B-Instruct/pot_latex_40ktoken",
+  "markdown": "/mnt/data/zhw/sheet_router/outs/spreadsheetbench_verified_400/Qwen3-VL-30B-A3B-Instruct/pot_markdown_40ktoken",
+  "json_cells": "/mnt/data/zhw/sheet_router/outs/spreadsheetbench_verified_400/Qwen3-VL-30B-A3B-Instruct/pot_json_cells_40ktoken",
+  "json_rows": "/mnt/data/zhw/sheet_router/outs/spreadsheetbench_verified_400/Qwen3-VL-30B-A3B-Instruct/pot_json_rows_40ktoken",
+  "image": "/mnt/data/zhw/sheet_router/outs/spreadsheetbench_verified_400/Qwen3-VL-30B-A3B-Instruct/pot_image_40ktoken",
+  "excel_1_image": "/mnt/data/zhw/sheet_router/outs/spreadsheetbench_verified_400/Qwen3-VL-30B-A3B-Instruct/pot_excel_1_image_40ktoken"
+}
