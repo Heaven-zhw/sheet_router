@@ -1,6 +1,6 @@
 cd /mnt/data/zhw/sheet_router
 
-VOTE_ROOT="outs/sheetflex_vote/full_5models"
+VOTE_ROOT="outs/sheetflex_vote"
 
 for MODEL in \
   gemma-3-12b-it \

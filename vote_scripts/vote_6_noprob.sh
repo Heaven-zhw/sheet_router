@@ -1,8 +1,8 @@
 cd /mnt/data/zhw/sheet_router
 
 REPO_DIR="$(pwd)"
-RUN_MAP_ROOT="$REPO_DIR/configs/sheetflex/generated_5models"
-VOTE_ROOT="$REPO_DIR/outs/sheetflex_vote/full_5models"
+RUN_MAP_ROOT="$REPO_DIR/configs/sheetflex/generated_maps"
+VOTE_ROOT="$REPO_DIR/outs/sheetflex_vote"
 
 mkdir -p "$RUN_MAP_ROOT" "$VOTE_ROOT"
 
