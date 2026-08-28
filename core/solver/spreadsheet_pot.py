@@ -635,12 +635,28 @@ class SpreadSheetPoTSolver:
         self.render_formulas_before_eval = kwargs.get("render_formulas_before_eval", False)
         self.save_prompts = kwargs.get("save_prompts", False)
         self.save_logprobs = kwargs.get("save_logprobs", False)
+        self.seed = kwargs.get("seed", None)
+        self.base_seed = kwargs.get("base_seed", None)
+        self.sample_index = kwargs.get("sample_index", None)
+        self.candidate_id = kwargs.get("candidate_id", None)
         self.dry_run = kwargs.get("dry_run", False)
         self.output_dir = kwargs.get("output_dir")
         self.data_split = kwargs.get("data_split", "all_912")
         self.split_config = SPREADSHEET_DATA_SPLITS.get(self.data_split, SPREADSHEET_DATA_SPLITS["all_912"])
         if self.save_logprobs:
             self.model_params["logprobs"] = True
+        if self.seed is not None:
+            self.model_params["seed"] = self.seed
+
+    def _candidate_metadata(self) -> Dict[str, Any]:
+        if self.seed is None:
+            return {}
+        return {
+            "seed": self.seed,
+            "base_seed": self.base_seed,
+            "sample_index": self.sample_index,
+            "candidate_id": self.candidate_id,
+        }
 
     def _builder(self, data: Dict[str, Any]) -> SpreadsheetTableInputBuilder:
         return SpreadsheetTableInputBuilder(
@@ -745,6 +761,7 @@ class SpreadSheetPoTSolver:
                     "output_created": output_created,
                     "error": attempt_error,
                 }
+                attempt.update(self._candidate_metadata())
                 if self.save_logprobs:
                     attempt_logprob_summary = summarize_choice_logprobs(resp)
                     attempt.update(attempt_logprob_summary)
@@ -783,6 +800,7 @@ class SpreadSheetPoTSolver:
         )
         if self.save_logprobs:
             result.update(final_logprob_summary)
+        result.update(self._candidate_metadata())
         if self.save_prompts:
             result["messages"] = messages
         return result
@@ -919,6 +937,7 @@ class SpreadSheetPoTSolver:
                         "Solver failed before producing a successful output workbook."
                     )
                 )
+            out.update(self._candidate_metadata())
             return out
 
 

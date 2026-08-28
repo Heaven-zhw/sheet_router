@@ -9,6 +9,8 @@ __pycache__/
 
 # Evaluation and experiment outputs
 outs/
+sc_outs/
+tests/
 
 # Dataset policy:
 # - keep original spreadsheet files

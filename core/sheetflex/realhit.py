@@ -1,7 +1,7 @@
 """Gold-free SheetFlex-vote aggregation and labeled evaluation for RealHiTBench."""
 
 from collections import defaultdict
-from typing import Any, Dict, Mapping, Sequence
+from typing import Any, Callable, Dict, Mapping, Sequence
 
 from ..solver.metrics.qa_metrics import QAMetric, normalize_answer, process_decimal
 from .common import (
@@ -28,12 +28,14 @@ def normalized_vote_answer(answer: Any) -> str:
     return normalize_answer(process_decimal(str(answer)))
 
 
-def _candidate_trace(
-    format_name: str,
+def build_realhit_candidate_trace(
+    candidate_id: str,
     record: Mapping[str, Any] | None,
     *,
+    candidate_id_key: str = "format",
     structure_key: str | None = None,
     run_dir: str | None = None,
+    trace_metadata: Mapping[str, Any] | None = None,
 ) -> Dict[str, Any]:
     if record is None:
         source = None
@@ -58,7 +60,7 @@ def _candidate_trace(
         reason = "model_answer_is_empty"
 
     trace = {
-        "format": format_name,
+        candidate_id_key: candidate_id,
         "source_run_dir": run_dir,
         "valid": valid,
         "invalid_reason": reason,
@@ -67,12 +69,23 @@ def _candidate_trace(
         "aggregation_score": None,
         "selected": False,
     }
+    trace.update(trace_metadata or {})
     trace.update(logprob_summary(source))
     return trace
 
 
-def aggregate_answer_vote(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+def aggregate_answer_vote(
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    candidate_id_key: str = "format",
+    selected_id_field: str = "selected_format",
+    group_ids_field: str = "formats",
+    rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
+    fallback_source: str = "format_order",
+) -> Dict[str, Any]:
     candidates = [dict(candidate) for candidate in candidates]
+    if rank_getter is None:
+        rank_getter = lambda item: format_rank(item[candidate_id_key])
     valid_candidates = [candidate for candidate in candidates if candidate["valid"]]
     if not valid_candidates:
         return {
@@ -82,7 +95,7 @@ def aggregate_answer_vote(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, 
             "answer_groups": [],
             "winning_normalized_answer": None,
             "winning_group_size": 0,
-            "selected_format": None,
+            selected_id_field: None,
             "selected_answer": "",
             "tie": False,
             "tied_group_count": 0,
@@ -104,15 +117,13 @@ def aggregate_answer_vote(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, 
             if all_logprobs
             else None
         )
-        representative_format = min(
-            (member["format"] for member in members), key=format_rank
-        )
+        representative = min(members, key=rank_getter)
         group = {
             "normalized_answer": normalized_answer,
-            "formats": [member["format"] for member in members],
+            group_ids_field: [member[candidate_id_key] for member in members],
             "size": len(members),
             "aggregation_score": float(len(members)),
-            "format": representative_format,
+            candidate_id_key: representative[candidate_id_key],
             "logprob_available": all_logprobs,
             "sequence_logprob_sum": group_logprob,
         }
@@ -123,7 +134,11 @@ def aggregate_answer_vote(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, 
     _, tied_groups = max_score_items(answer_groups)
     group_tie = len(tied_groups) > 1
     if group_tie:
-        group_decision = break_tie(tied_groups)
+        group_decision = break_tie(
+            tied_groups,
+            rank_getter=rank_getter,
+            fallback_source=fallback_source,
+        )
         winning_group = group_decision.selected
         tie_source = group_decision.source
         tie_reason = group_decision.reason
@@ -134,7 +149,11 @@ def aggregate_answer_vote(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, 
 
     winning_members = grouped[winning_group["normalized_answer"]]
     if len(winning_members) > 1:
-        member_decision = break_tie(winning_members)
+        member_decision = break_tie(
+            winning_members,
+            rank_getter=rank_getter,
+            fallback_source=fallback_source,
+        )
         selected = member_decision.selected
         representative_source = member_decision.source
         representative_reason = member_decision.reason
@@ -151,7 +170,7 @@ def aggregate_answer_vote(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, 
         "answer_groups": answer_groups,
         "winning_normalized_answer": winning_group["normalized_answer"],
         "winning_group_size": winning_group["size"],
-        "selected_format": selected["format"],
+        selected_id_field: selected[candidate_id_key],
         "selected_answer": selected["model_answer"],
         "tie": group_tie,
         "tied_group_count": len(tied_groups),
@@ -172,7 +191,7 @@ def aggregate_realhit_sample(
     if question_type == "Structure Comprehending":
         reference_vote = aggregate_answer_vote(
             [
-                _candidate_trace(
+                build_realhit_candidate_trace(
                     format_name,
                     records_by_format.get(format_name),
                     structure_key="structure_reference_run",
@@ -183,7 +202,7 @@ def aggregate_realhit_sample(
         )
         swap_vote = aggregate_answer_vote(
             [
-                _candidate_trace(
+                build_realhit_candidate_trace(
                     format_name,
                     records_by_format.get(format_name),
                     structure_key="structure_swap_run",
@@ -222,7 +241,7 @@ def aggregate_realhit_sample(
 
     vote = aggregate_answer_vote(
         [
-            _candidate_trace(
+            build_realhit_candidate_trace(
                 format_name,
                 records_by_format.get(format_name),
                 run_dir=run_dirs.get(format_name),
@@ -248,6 +267,8 @@ def evaluate_realhit_vote(
     aggregated_rows: Sequence[Mapping[str, Any]],
     dataset_by_id: Mapping[str, Mapping[str, Any]],
     metric: QAMetric | None = None,
+    *,
+    selected_id_field: str = "selected_format",
 ) -> tuple[list[dict], dict]:
     metric = metric or QAMetric()
     eval_rows = []
@@ -273,7 +294,7 @@ def evaluate_realhit_vote(
             "SubQType": item.get("SubQType"),
             "FileName": item.get("FileName"),
             "format_valid": bool(aggregate.get("format_valid")),
-            "selected_format": aggregate.get("selected_format"),
+            selected_id_field: aggregate.get(selected_id_field),
             "eval": {
                 "Model_Answer": prediction,
                 "Reference_Answer": reference,

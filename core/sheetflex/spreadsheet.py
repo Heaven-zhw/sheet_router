@@ -7,7 +7,7 @@ import os
 import shutil
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Mapping, Sequence
+from typing import Any, Callable, Dict, Mapping, Sequence
 
 import openpyxl
 
@@ -97,11 +97,22 @@ def cell_map_similarity(
     return matched / len(left)
 
 
-def select_spreadsheet_medoid(candidates: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+def select_spreadsheet_medoid(
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    candidate_id_key: str = "format",
+    selected_id_field: str = "selected_format",
+    rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
+    fallback_source: str = "format_order",
+) -> Dict[str, Any]:
     candidates = [dict(candidate) for candidate in candidates]
+    if rank_getter is None:
+        rank_getter = lambda item: FORMAT_ORDER.index(item[candidate_id_key])
     valid = [candidate for candidate in candidates if candidate["valid"]]
     matrix = {
-        left["format"]: {right["format"]: None for right in candidates}
+        left[candidate_id_key]: {
+            right[candidate_id_key]: None for right in candidates
+        }
         for left in candidates
     }
     pairwise_values = []
@@ -115,7 +126,7 @@ def select_spreadsheet_medoid(candidates: Sequence[Mapping[str, Any]]) -> Dict[s
             "similarity_matrix": matrix,
             "average_pairwise_region_agreement": None,
             "medoid_score": None,
-            "selected_format": None,
+            selected_id_field: None,
             "selected_source_file": None,
             "tie": False,
             "tied_candidate_count": 0,
@@ -126,22 +137,27 @@ def select_spreadsheet_medoid(candidates: Sequence[Mapping[str, Any]]) -> Dict[s
     for left_index, left in enumerate(valid):
         for right_index, right in enumerate(valid):
             if right_index < left_index:
-                similarity = matrix[right["format"]][left["format"]]
+                similarity = matrix[right[candidate_id_key]][left[candidate_id_key]]
             else:
                 similarity = cell_map_similarity(left["_cells"], right["_cells"])
-            matrix[left["format"]][right["format"]] = similarity
+            matrix[left[candidate_id_key]][right[candidate_id_key]] = similarity
             if right_index > left_index:
                 pairwise_values.append(similarity)
 
     for candidate in valid:
         candidate["aggregation_score"] = sum(
-            matrix[candidate["format"]][other["format"]] for other in valid
+            matrix[candidate[candidate_id_key]][other[candidate_id_key]]
+            for other in valid
         )
 
     best_score, tied = max_score_items(valid)
     medoid_tie = len(tied) > 1
     if medoid_tie:
-        decision = break_tie(tied)
+        decision = break_tie(
+            tied,
+            rank_getter=rank_getter,
+            fallback_source=fallback_source,
+        )
         selected = decision.selected
         tie_source = decision.source
         tie_reason = decision.reason
@@ -162,7 +178,7 @@ def select_spreadsheet_medoid(candidates: Sequence[Mapping[str, Any]]) -> Dict[s
             sum(pairwise_values) / len(pairwise_values) if pairwise_values else None
         ),
         "medoid_score": best_score,
-        "selected_format": selected["format"],
+        selected_id_field: selected[candidate_id_key],
         "selected_source_file": selected["output_file"],
         "tie": medoid_tie,
         "tied_candidate_count": len(tied),
@@ -171,7 +187,7 @@ def select_spreadsheet_medoid(candidates: Sequence[Mapping[str, Any]]) -> Dict[s
     }
 
 
-def _candidate_output_path(
+def candidate_output_path(
     sample_id: str,
     format_name: str,
     record: Mapping[str, Any] | None,
@@ -185,22 +201,26 @@ def _candidate_output_path(
     return run_dirs[format_name] / "spreadsheet" / output_name
 
 
-def aggregate_spreadsheet_sample(
+def aggregate_spreadsheet_candidates(
     item: Mapping[str, Any],
-    records_by_format: Mapping[str, Mapping[str, Any] | None],
-    run_dirs: Mapping[str, Path],
+    candidate_specs: Sequence[Mapping[str, Any]],
     input_path: Path,
+    *,
+    candidate_id_key: str = "format",
+    selected_id_field: str = "selected_format",
+    rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
+    fallback_source: str = "format_order",
 ) -> Dict[str, Any]:
-    """Select a workbook medoid using only input/candidates and public metadata."""
+    """Validate and select candidate workbooks without reading a golden file."""
     sample_id = str(item["id"])
-    candidate_paths = {
-        format_name: _candidate_output_path(
-            sample_id,
-            format_name,
-            records_by_format.get(format_name),
-            run_dirs,
+    candidate_ids = [spec[candidate_id_key] for spec in candidate_specs]
+    if len(set(candidate_ids)) != len(candidate_ids):
+        raise SpreadsheetRegionError(
+            f"Duplicate candidate identifier for sample {sample_id}: {candidate_ids}"
         )
-        for format_name in FORMAT_ORDER
+    candidate_paths = {
+        spec[candidate_id_key]: Path(spec["output_path"])
+        for spec in candidate_specs
     }
     max_rows, max_columns, open_errors = determine_shared_bounds(
         input_path, candidate_paths
@@ -221,9 +241,10 @@ def aggregate_spreadsheet_sample(
             input_error = f"failed_to_extract_input_regions: {exc}"
 
     candidates = []
-    for format_name in FORMAT_ORDER:
-        record = records_by_format.get(format_name)
-        output_path = candidate_paths[format_name]
+    for spec in candidate_specs:
+        candidate_id = spec[candidate_id_key]
+        record = spec.get("record")
+        output_path = candidate_paths[candidate_id]
         valid = True
         invalid_reason = None
         cells = None
@@ -233,9 +254,9 @@ def aggregate_spreadsheet_sample(
         elif record.get("execution_success") is not True:
             valid = False
             invalid_reason = "execution_success_is_not_true"
-        elif format_name in open_errors:
+        elif candidate_id in open_errors:
             valid = False
-            invalid_reason = open_errors[format_name]
+            invalid_reason = open_errors[candidate_id]
         elif input_error is not None:
             valid = False
             invalid_reason = input_error
@@ -257,8 +278,8 @@ def aggregate_spreadsheet_sample(
                 invalid_reason = f"failed_to_extract_candidate_regions: {exc}"
 
         candidate = {
-            "format": format_name,
-            "source_run_dir": str(run_dirs[format_name]),
+            candidate_id_key: candidate_id,
+            "source_run_dir": str(spec["run_dir"]),
             "output_file": str(output_path),
             "valid": valid,
             "invalid_reason": invalid_reason,
@@ -268,10 +289,17 @@ def aggregate_spreadsheet_sample(
             "selected": False,
             "_cells": cells,
         }
+        candidate.update(spec.get("trace_metadata") or {})
         candidate.update(logprob_summary(record))
         candidates.append(candidate)
 
-    selection = select_spreadsheet_medoid(candidates)
+    selection = select_spreadsheet_medoid(
+        candidates,
+        candidate_id_key=candidate_id_key,
+        selected_id_field=selected_id_field,
+        rank_getter=rank_getter,
+        fallback_source=fallback_source,
+    )
     return {
         "id": sample_id,
         "instruction_type": item.get("instruction_type"),
@@ -279,18 +307,43 @@ def aggregate_spreadsheet_sample(
         "answer_sheet": item.get("answer_sheet"),
         "format_valid": selection["format_valid"],
         "execution_success": selection["format_valid"],
-        "selected_format": selection["selected_format"],
+        selected_id_field: selection[selected_id_field],
         "selected_source_file": selection["selected_source_file"],
         "valid_candidate_count": selection["valid_candidate_count"],
         "trace": {
             "aggregation": "equal_weight_region_medoid",
-            "boundary_sources": ["input", *FORMAT_ORDER],
+            "boundary_sources": ["input", *candidate_ids],
             "max_rows_by_sheet": max_rows,
             "max_columns_by_sheet": max_columns,
             "input_region_error": input_error,
             **selection,
         },
     }
+
+
+def aggregate_spreadsheet_sample(
+    item: Mapping[str, Any],
+    records_by_format: Mapping[str, Mapping[str, Any] | None],
+    run_dirs: Mapping[str, Path],
+    input_path: Path,
+) -> Dict[str, Any]:
+    """Select a workbook medoid using only input/candidates and public metadata."""
+    sample_id = str(item["id"])
+    candidate_specs = [
+        {
+            "format": format_name,
+            "record": records_by_format.get(format_name),
+            "run_dir": run_dirs[format_name],
+            "output_path": candidate_output_path(
+                sample_id,
+                format_name,
+                records_by_format.get(format_name),
+                run_dirs,
+            ),
+        }
+        for format_name in FORMAT_ORDER
+    ]
+    return aggregate_spreadsheet_candidates(item, candidate_specs, input_path)
 
 
 def copy_selected_workbooks(
@@ -336,6 +389,8 @@ def evaluate_spreadsheet_vote(
     dataset_by_id: Mapping[str, Mapping[str, Any]],
     dataset_root: Path,
     output_dir: Path,
+    *,
+    selected_id_field: str = "selected_format",
 ) -> tuple[list[dict], dict]:
     eval_rows = []
     score_lists = defaultdict(list)
@@ -368,7 +423,7 @@ def evaluate_spreadsheet_vote(
             "total_soft_restriction": float(result_value),
             "total_hard_restriction": float(result_value),
             "table_metadata": None,
-            "selected_format": aggregate.get("selected_format"),
+            selected_id_field: aggregate.get(selected_id_field),
         }
         eval_rows.append(entry)
         is_sheet = "Sheet" in str(item.get("instruction_type", ""))

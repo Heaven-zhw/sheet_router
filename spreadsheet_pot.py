@@ -12,7 +12,7 @@ from core.solver.spreadsheet_pot import (
     SUPPORTED_TABLE_FORMATS,
     SpreadSheetPoTSolver,
 )
-from core.utils import load_jsonl, save_jsonl
+from core.utils import load_jsonl, save_candidate_run_metadata, save_jsonl
 
 
 repo_dir = os.path.abspath(os.path.dirname(__file__))
@@ -134,6 +134,8 @@ def build_suffix(args):
     parts = ["pot", args.table_format]
     if args.save_logprobs:
         parts.append("logprobs")
+    if getattr(args, "seed", None) is not None:
+        parts.append(f"seed{args.seed}")
     if args.fill_merged:
         parts.append("fillmerged")
     if not args.include_coordinates:
@@ -179,6 +181,8 @@ def first_existing_path(out_dir, names):
 
 def solution(args):
     out_dir = os.path.join(repo_dir, args.output_root, build_dataset_dir(args), build_model_dir(args), build_suffix(args))
+    os.makedirs(out_dir, exist_ok=True)
+    save_candidate_run_metadata(args, build_dataset_dir(args), out_dir)
     spreadsheet_out_dir = os.path.join(out_dir, "spreadsheet")
     if os.path.exists(spreadsheet_out_dir) and not args.resume:
         shutil.rmtree(spreadsheet_out_dir)
@@ -259,6 +263,10 @@ def parse_args():
     parser.add_argument("--code_exec_url", type=str, default="localhost:8081")
     parser.add_argument("--top_p", type=float, default=1.0)
     parser.add_argument("--temperature", type=float, default=0)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--base_seed", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--sample_index", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--candidate_id", type=str, default=None, help=argparse.SUPPRESS)
 
     parser.add_argument(
         "--table_format",

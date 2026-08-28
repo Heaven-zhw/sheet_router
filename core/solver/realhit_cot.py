@@ -713,9 +713,25 @@ class RealHiTCoTSolver:
         self.max_retries = kwargs.get("max_retries", 3)
         self.save_prompts = kwargs.get("save_prompts", False)
         self.save_logprobs = kwargs.get("save_logprobs", False)
+        self.seed = kwargs.get("seed", None)
+        self.base_seed = kwargs.get("base_seed", None)
+        self.sample_index = kwargs.get("sample_index", None)
+        self.candidate_id = kwargs.get("candidate_id", None)
         self.dry_run = kwargs.get("dry_run", False)
         if self.save_logprobs:
             self.model_params["logprobs"] = True
+        if self.seed is not None:
+            self.model_params["seed"] = self.seed
+
+    def _candidate_metadata(self) -> Dict[str, Any]:
+        if self.seed is None:
+            return {}
+        return {
+            "seed": self.seed,
+            "base_seed": self.base_seed,
+            "sample_index": self.sample_index,
+            "candidate_id": self.candidate_id,
+        }
 
     def _builder(self, data: Dict[str, Any]) -> TableInputBuilder:
         return TableInputBuilder(
@@ -798,6 +814,7 @@ class RealHiTCoTSolver:
                         "response": content,
                         "format_error": None,
                     }
+                    attempt.update(self._candidate_metadata())
                     attempt.update(attempt_logprob_summary)
                     attempts.append(attempt)
                     if self.save_logprobs:
@@ -813,6 +830,7 @@ class RealHiTCoTSolver:
                         "response": content,
                         "format_error": format_error,
                     }
+                    attempt.update(self._candidate_metadata())
                     attempt.update(attempt_logprob_summary)
                     attempts.append(attempt)
                     messages.append({"role": "assistant", "content": content})
@@ -843,6 +861,7 @@ class RealHiTCoTSolver:
         )
         if self.save_logprobs:
             out.update(final_logprob_summary)
+        out.update(self._candidate_metadata())
         if self.save_prompts:
             out["messages"] = messages
         return out
@@ -872,6 +891,7 @@ class RealHiTCoTSolver:
                     "parsed_response": result.get("parsed_response"),
                     "table_metadata": result.get("table_metadata"),
                 }
+                reference_run.update(self._candidate_metadata())
                 swap_run = {
                     "FileName": swap_data["FileName"],
                     "model_answer": response,
@@ -881,6 +901,7 @@ class RealHiTCoTSolver:
                     "parsed_response": swap_result.get("parsed_response"),
                     "table_metadata": swap_result.get("table_metadata"),
                 }
+                swap_run.update(self._candidate_metadata())
                 if self.save_logprobs:
                     reference_run.update(select_logprob_summary(result))
                     swap_run.update(select_logprob_summary(swap_result))

@@ -124,6 +124,34 @@ def save_jsonl(data, path):
     else:
         raise ValueError(f"Unsupported path: {path}")
 
+
+def candidate_run_metadata(args, dataset, output_dir):
+    """Build metadata for a seeded candidate run without changing old runs."""
+    seed = getattr(args, "seed", None)
+    if seed is None:
+        return None
+    return {
+        "dataset": dataset,
+        "model_name": getattr(args, "model_name", None),
+        "url": getattr(args, "url", None),
+        "table_format": getattr(args, "table_format", None),
+        "temperature": getattr(args, "temperature", None),
+        "top_p": getattr(args, "top_p", None),
+        "seed": seed,
+        "base_seed": getattr(args, "base_seed", None),
+        "sample_index": getattr(args, "sample_index", None),
+        "candidate_id": getattr(args, "candidate_id", None),
+        "save_logprobs": bool(getattr(args, "save_logprobs", False)),
+        "output_dir": os.path.abspath(output_dir),
+    }
+
+
+def save_candidate_run_metadata(args, dataset, output_dir):
+    metadata = candidate_run_metadata(args, dataset, output_dir)
+    if metadata is not None:
+        save_jsonl(metadata, os.path.join(output_dir, "run_metadata.json"))
+    return metadata
+
 def _chat_completions_url(url):
     base_url = os.environ.get("BASE_URL")
     if not base_url:

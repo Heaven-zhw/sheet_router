@@ -156,9 +156,14 @@ def break_tie(
     tied_items: Sequence[Mapping[str, Any]],
     *,
     format_getter: Callable[[Mapping[str, Any]], str] = lambda item: item["format"],
+    rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
+    fallback_source: str = "format_order",
 ) -> TieDecision:
     if not tied_items:
         raise SheetFlexError("Cannot break an empty tie")
+
+    if rank_getter is None:
+        rank_getter = lambda item: format_rank(format_getter(item))
 
     all_available = all(
         item.get("logprob_available") is True
@@ -176,18 +181,18 @@ def break_tie(
         ]
         if len(best) == 1:
             return TieDecision(best[0], "logprob", True, "highest_sequence_logprob_sum")
-        selected = min(best, key=lambda item: format_rank(format_getter(item)))
+        selected = min(best, key=rank_getter)
         return TieDecision(
             selected,
-            "format_order",
+            fallback_source,
             True,
             "equal_sequence_logprob_sum",
         )
 
-    selected = min(tied_items, key=lambda item: format_rank(format_getter(item)))
+    selected = min(tied_items, key=rank_getter)
     return TieDecision(
         selected,
-        "format_order",
+        fallback_source,
         False,
         "missing_logprob_in_tied_set",
     )
