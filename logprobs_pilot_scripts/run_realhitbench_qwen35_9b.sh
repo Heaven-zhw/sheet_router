@@ -6,9 +6,10 @@ REPO_DIR="${REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
 
 # RUN_TAG="${RUN_TAG:-rerun}"
 WORKERS="${WORKERS:-8}"
+OUTPUT_ROOT="lp_outs"
 
-MODEL="gemma-4-12B-it"
-URL="10.26.33.169:33374"
+MODEL="Qwen3.5-9B"
+URL="10.26.35.171:33370"
 MAX_TEXT_TOKENS=100000
 # FORMATS=(
 #   official_latex
@@ -31,6 +32,7 @@ FORMATS=(
   image 
   excel_1_image 
 )
+
 cd "$REPO_DIR"
 
 for FORMAT in "${FORMATS[@]}"; do
@@ -49,6 +51,7 @@ for FORMAT in "${FORMATS[@]}"; do
     --max_text_tokens "$MAX_TEXT_TOKENS" \
     --save_logprobs \
     -s 100ktoken \
+    --output_root "$OUTPUT_ROOT" \
     --report_every 100 \
     --save_every 100
 done

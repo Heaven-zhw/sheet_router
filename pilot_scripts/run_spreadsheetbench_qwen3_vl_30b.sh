@@ -16,19 +16,26 @@ MODEL="Qwen3-VL-30B-A3B-Instruct"
 URL="10.26.33.169:33363"
 MAX_TEXT_TOKENS=40000
 
+# FORMATS=(
+#   latex 
+#   markdown 
+#   html 
+#   csv 
+#   dataframe 
+#   json_rows 
+#   json_cells 
+#   image
+#   excel_1_image 
+#   default_image
+# )
 FORMATS=(
   latex 
   markdown 
-  html 
-  csv 
-  dataframe 
   json_rows 
   json_cells 
-  image
+  image 
   excel_1_image 
-  default_image
 )
-
 
 cd "$REPO_DIR"
 
@@ -50,6 +57,7 @@ for FORMAT in "${FORMATS[@]}"; do
     --report_every 50 \
     --save_every 50 \
     --max_text_tokens "$MAX_TEXT_TOKENS" \
+    --save_logprobs \
     -s 40ktoken \
     --render_formulas_before_eval
 done

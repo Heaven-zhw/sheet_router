@@ -29,7 +29,12 @@ MAX_TEXT_TOKENS=40000
 #   default_image
 # )
 FORMATS=(
-  image
+  latex 
+  markdown 
+  json_rows 
+  json_cells 
+  image 
+  excel_1_image 
 )
 cd "$REPO_DIR"
 
@@ -51,6 +56,7 @@ for FORMAT in "${FORMATS[@]}"; do
     --report_every 50 \
     --save_every 50 \
     --max_text_tokens "$MAX_TEXT_TOKENS" \
+    --save_logprobs \
     -s 40ktoken \
     --render_formulas_before_eval
 done

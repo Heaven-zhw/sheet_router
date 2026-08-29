@@ -6,9 +6,10 @@ REPO_DIR="${REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
 
 # RUN_TAG="${RUN_TAG:-rerun}"
 WORKERS="${WORKERS:-8}"
+OUTPUT_ROOT="lp_outs"
 
-MODEL="gemma-4-12B-it"
-URL="10.26.33.169:33374"
+MODEL="gemma-3-12b-it"
+URL="10.26.33.169:33373"
 MAX_TEXT_TOKENS=100000
 # FORMATS=(
 #   official_latex
@@ -49,6 +50,8 @@ for FORMAT in "${FORMATS[@]}"; do
     --max_text_tokens "$MAX_TEXT_TOKENS" \
     --save_logprobs \
     -s 100ktoken \
+    --output_root "$OUTPUT_ROOT" \
     --report_every 100 \
     --save_every 100
+    
 done

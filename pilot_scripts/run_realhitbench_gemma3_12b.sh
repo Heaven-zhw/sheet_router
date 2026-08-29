@@ -24,7 +24,12 @@ MAX_TEXT_TOKENS=100000
 #   default_image
 # )
 FORMATS=(
-  latex
+  latex 
+  markdown 
+  json_rows 
+  json_cells 
+  image 
+  excel_1_image 
 )
 cd "$REPO_DIR"
 
@@ -42,7 +47,9 @@ for FORMAT in "${FORMATS[@]}"; do
     --max_retries 3 \
     --workers "$WORKERS" \
     --max_text_tokens "$MAX_TEXT_TOKENS" \
+    --save_logprobs \
     -s 100ktoken \
     --report_every 100 \
     --save_every 100
+    
 done
