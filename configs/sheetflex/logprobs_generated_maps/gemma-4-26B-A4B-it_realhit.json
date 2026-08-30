@@ -1,8 +1,8 @@
 {
-  "latex": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_latex_100ktoken",
-  "markdown": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_markdown_100ktoken",
-  "json_cells": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_json_cells_100ktoken",
-  "json_rows": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_json_rows_100ktoken",
-  "image": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_image_100ktoken",
-  "excel_1_image": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_excel_1_image_100ktoken"
+  "latex": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_latex_logprobs_100ktoken",
+  "markdown": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_markdown_logprobs_100ktoken",
+  "json_cells": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_json_cells_logprobs_100ktoken",
+  "json_rows": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_json_rows_logprobs_100ktoken",
+  "image": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_image_logprobs_100ktoken",
+  "excel_1_image": "/mnt/data/zhw/sheet_router/lp_outs/realhitbench/gemma-4-26B-A4B-it/cot_excel_1_image_logprobs_100ktoken"
 }

@@ -53,5 +53,4 @@ for FORMAT in "${FORMATS[@]}"; do
     --output_root "$OUTPUT_ROOT" \
     --report_every 100 \
     --save_every 100
-    
 done

@@ -1,8 +1,8 @@
 {
-  "latex": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_latex_40ktoken",
-  "markdown": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_markdown_40ktoken",
-  "json_cells": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_json_cells_40ktoken",
-  "json_rows": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_json_rows_40ktoken",
-  "image": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_image_40ktoken",
-  "excel_1_image": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_excel_1_image_40ktoken"
+  "latex": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_latex_logprobs_40ktoken",
+  "markdown": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_markdown_logprobs_40ktoken",
+  "json_cells": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_json_cells_logprobs_40ktoken",
+  "json_rows": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_json_rows_logprobs_40ktoken",
+  "image": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_image_logprobs_40ktoken",
+  "excel_1_image": "/mnt/data/zhw/sheet_router/lp_outs/spreadsheetbench_verified_400/gemma-3-12b-it/pot_excel_1_image_logprobs_40ktoken"
 }
