@@ -3,10 +3,13 @@ import tempfile
 import unittest
 from collections import OrderedDict
 from pathlib import Path
+from unittest.mock import patch
 
 import openpyxl
+import sheetflex_vote as sheetflex_vote_cli
 
 from core.sheetflex.common import (
+    RECOMMEND_FORMAT_ORDER,
     FORMAT_ORDER,
     index_rows_by_id,
     load_indexed_runs,
@@ -56,6 +59,15 @@ def structure_record(reference, swap, *, valid=True, logprob=None):
 
 
 class RealHiTVoteTest(unittest.TestCase):
+    def test_cli_defaults_to_recommend_and_accepts_legacy(self):
+        argv = ["sheetflex_vote.py", "realhit", "--run_map", "m", "--output_dir", "o"]
+        with patch("sys.argv", argv):
+            recommend = sheetflex_vote_cli.parse_args()
+        with patch("sys.argv", argv + ["--tie_break_order", "legacy"]):
+            legacy = sheetflex_vote_cli.parse_args()
+        self.assertEqual(recommend.tie_break_order, "recommend")
+        self.assertEqual(legacy.tie_break_order, "legacy")
+
     def test_normal_majority_vote(self):
         result = aggregate_answer_vote(
             [
@@ -118,6 +130,18 @@ class RealHiTVoteTest(unittest.TestCase):
         result = aggregate_answer_vote(candidates)
         self.assertEqual(result["tie_break_source"], "format_order")
         self.assertEqual(result["selected_format"], "latex")
+
+    def test_custom_recommend_format_order_changes_fallback_choice(self):
+        candidates = [
+            realhit_candidate("latex", "A"),
+            realhit_candidate("json_cells", "B"),
+        ]
+        result = aggregate_answer_vote(
+            candidates,
+            rank_getter=lambda item: RECOMMEND_FORMAT_ORDER.index(item["format"]),
+        )
+        self.assertEqual(result["tie_break_source"], "format_order")
+        self.assertEqual(result["selected_format"], "json_cells")
 
     def test_all_invalid(self):
         result = aggregate_answer_vote(
@@ -279,6 +303,22 @@ class SpreadsheetVoteTest(unittest.TestCase):
         )
         self.assertEqual(result["trace"]["tie_break_source"], "format_order")
         self.assertEqual(result["selected_format"], "latex")
+
+    def test_medoid_tie_recommend_order_prefers_json_cells(self):
+        records = self.empty_records()
+        records["latex"] = self.record("latex", {"A1": 0, "B1": 0})
+        records["json_cells"] = self.record(
+            "json_cells", {"A1": 1, "B1": 1}
+        )
+        result = aggregate_spreadsheet_sample(
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            format_order=RECOMMEND_FORMAT_ORDER,
+        )
+        self.assertEqual(result["trace"]["tie_break_source"], "format_order")
+        self.assertEqual(result["selected_format"], "json_cells")
 
     def test_missing_and_damaged_files_are_invalid(self):
         records = self.empty_records()

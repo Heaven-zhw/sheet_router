@@ -326,6 +326,7 @@ def aggregate_spreadsheet_sample(
     records_by_format: Mapping[str, Mapping[str, Any] | None],
     run_dirs: Mapping[str, Path],
     input_path: Path,
+    format_order: Sequence[str] = FORMAT_ORDER,
 ) -> Dict[str, Any]:
     """Select a workbook medoid using only input/candidates and public metadata."""
     sample_id = str(item["id"])
@@ -341,9 +342,15 @@ def aggregate_spreadsheet_sample(
                 run_dirs,
             ),
         }
-        for format_name in FORMAT_ORDER
+        for format_name in format_order
     ]
-    return aggregate_spreadsheet_candidates(item, candidate_specs, input_path)
+    rank_map = {format_name: index for index, format_name in enumerate(format_order)}
+    return aggregate_spreadsheet_candidates(
+        item,
+        candidate_specs,
+        input_path,
+        rank_getter=lambda candidate: rank_map[candidate["format"]],
+    )
 
 
 def copy_selected_workbooks(

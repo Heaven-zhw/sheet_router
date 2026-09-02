@@ -186,8 +186,11 @@ def aggregate_realhit_sample(
     question_type: str,
     records_by_format: Mapping[str, Mapping[str, Any] | None],
     run_dirs: Mapping[str, str] | None = None,
+    format_order: Sequence[str] = FORMAT_ORDER,
 ) -> Dict[str, Any]:
     run_dirs = run_dirs or {}
+    rank_map = {format_name: index for index, format_name in enumerate(format_order)}
+    rank_getter = lambda item: rank_map[item["format"]]
     if question_type == "Structure Comprehending":
         reference_vote = aggregate_answer_vote(
             [
@@ -197,8 +200,9 @@ def aggregate_realhit_sample(
                     structure_key="structure_reference_run",
                     run_dir=run_dirs.get(format_name),
                 )
-                for format_name in FORMAT_ORDER
-            ]
+                for format_name in format_order
+            ],
+            rank_getter=rank_getter,
         )
         swap_vote = aggregate_answer_vote(
             [
@@ -208,8 +212,9 @@ def aggregate_realhit_sample(
                     structure_key="structure_swap_run",
                     run_dir=run_dirs.get(format_name),
                 )
-                for format_name in FORMAT_ORDER
-            ]
+                for format_name in format_order
+            ],
+            rank_getter=rank_getter,
         )
         valid_formats = {
             candidate["format"]
@@ -246,8 +251,9 @@ def aggregate_realhit_sample(
                 records_by_format.get(format_name),
                 run_dir=run_dirs.get(format_name),
             )
-            for format_name in FORMAT_ORDER
-        ]
+            for format_name in format_order
+        ],
+        rank_getter=rank_getter,
     )
     return {
         "id": str(sample_id),

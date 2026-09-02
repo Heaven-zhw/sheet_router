@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 
 from core.sheetflex.common import (
+    DEFAULT_TIE_BREAK_ORDER,
     FORMAT_ORDER,
+    FORMAT_ORDERS,
+    get_format_order,
     index_rows_by_id,
     load_indexed_runs,
     load_result_rows,
@@ -58,6 +61,7 @@ def _resolved_run_map_trace(run_map):
 
 def run_realhit(args):
     output_dir = prepare_output_dir(args.output_dir)
+    format_order = get_format_order(args.tie_break_order)
     run_map = load_run_map(args.run_map)
     indexed_runs = load_indexed_runs(run_map, "realhit_cot.jsonl")
 
@@ -81,6 +85,7 @@ def run_realhit(args):
             item.get("QuestionType", "Unknown"),
             records,
             run_dirs=run_dirs,
+            format_order=format_order,
         )
         aggregate.update(
             {
@@ -98,7 +103,7 @@ def run_realhit(args):
         {
             "benchmark": "realhitbench",
             "method": "SheetFlex-vote",
-            "format_order": list(FORMAT_ORDER),
+            "tie_break_order": args.tie_break_order,
             "run_map": run_dirs,
         }
     )
@@ -115,6 +120,7 @@ def run_realhit(args):
 
 def run_spreadsheet(args):
     output_dir = prepare_output_dir(args.output_dir)
+    format_order = get_format_order(args.tie_break_order)
     run_map = load_run_map(args.run_map)
     indexed_runs = load_indexed_runs(run_map, "spreadsheet_pot.jsonl")
 
@@ -137,6 +143,7 @@ def run_spreadsheet(args):
                 records,
                 run_map,
                 spreadsheet_input_path(dataset_root, item),
+                format_order=format_order,
             )
         )
 
@@ -149,7 +156,7 @@ def run_spreadsheet(args):
         {
             "benchmark": "spreadsheetbench_verified_400",
             "method": "SheetFlex-vote",
-            "format_order": list(FORMAT_ORDER),
+            "tie_break_order": args.tie_break_order,
             "run_map": _resolved_run_map_trace(run_map),
             "copied_output_workbooks": copied,
         }
@@ -170,6 +177,12 @@ def _common_parser(subparser):
     subparser.add_argument("--output_dir", required=True, help="New, empty SheetFlex-vote output directory.")
     subparser.add_argument("--ids", default=None, help="Optional comma-separated sample IDs.")
     subparser.add_argument("--limit", type=int, default=0, help="Optional maximum samples after ID filtering.")
+    subparser.add_argument(
+        "--tie_break_order",
+        choices=tuple(FORMAT_ORDERS),
+        default=DEFAULT_TIE_BREAK_ORDER,
+        help="Format fallback order used when cumulative logprobs cannot decide a tie.",
+    )
 
 
 def parse_args():

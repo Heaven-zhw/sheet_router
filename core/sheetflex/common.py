@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Mapping, Sequence
 
 
-FORMAT_ORDER = (
+LEGACY_FORMAT_ORDER = (
     "latex",
     "markdown",
     "json_cells",
@@ -16,6 +16,22 @@ FORMAT_ORDER = (
     "image",
     "excel_1_image",
 )
+RECOMMEND_FORMAT_ORDER = (
+    "json_cells",
+    "latex",
+    "json_rows",
+    "markdown",
+    "excel_1_image",
+    "image",
+)
+FORMAT_ORDERS = {
+    "recommend": RECOMMEND_FORMAT_ORDER,
+    "legacy": LEGACY_FORMAT_ORDER,
+}
+DEFAULT_TIE_BREAK_ORDER = "recommend"
+
+# Backward-compatible alias for existing code and direct pure-function callers.
+FORMAT_ORDER = LEGACY_FORMAT_ORDER
 FORMAT_RANK = {name: index for index, name in enumerate(FORMAT_ORDER)}
 SCORE_REL_TOL = 1e-12
 SCORE_ABS_TOL = 1e-12
@@ -47,6 +63,16 @@ def format_rank(format_name: str) -> int:
         return FORMAT_RANK[format_name]
     except KeyError as exc:
         raise SheetFlexError(f"Unknown SheetFlex format: {format_name!r}") from exc
+
+
+def get_format_order(order_name: str) -> tuple[str, ...]:
+    try:
+        return FORMAT_ORDERS[order_name]
+    except KeyError as exc:
+        raise SheetFlexError(
+            f"Unknown tie-break order {order_name!r}; "
+            f"choose one of {sorted(FORMAT_ORDERS)}"
+        ) from exc
 
 
 def load_run_map(path) -> Dict[str, Path]:
