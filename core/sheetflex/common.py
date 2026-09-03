@@ -32,6 +32,7 @@ DEFAULT_TIE_BREAK_ORDER = "recommend"
 TIE_BREAK_LOGPROB_FIELDS = {
     "mean": "sequence_logprob_mean",
     "sum": "sequence_logprob_sum",
+    "none": None,
 }
 DEFAULT_TIE_BREAK_LOGPROB = "mean"
 
@@ -80,7 +81,7 @@ def get_format_order(order_name: str) -> tuple[str, ...]:
         ) from exc
 
 
-def get_tie_break_logprob_field(statistic: str) -> str:
+def get_tie_break_logprob_field(statistic: str) -> str | None:
     try:
         return validate_tie_break_logprob_field(
             TIE_BREAK_LOGPROB_FIELDS[statistic]
@@ -92,7 +93,7 @@ def get_tie_break_logprob_field(statistic: str) -> str:
         ) from exc
 
 
-def validate_tie_break_logprob_field(logprob_field: str) -> str:
+def validate_tie_break_logprob_field(logprob_field: str | None) -> str | None:
     if logprob_field not in TIE_BREAK_LOGPROB_FIELDS.values():
         raise SheetFlexError(f"Unsupported tie-break logprob field: {logprob_field!r}")
     return logprob_field
@@ -176,7 +177,7 @@ def load_indexed_runs(
 
 def logprob_summary(record: Mapping[str, Any] | None) -> Dict[str, Any]:
     record = record or {}
-    value = record.get("sequence_logprob_sum")
+    value = record.get("sequence_logprob_mean")
     available = (
         record.get("logprob_available") is True
         and not isinstance(value, bool)
@@ -202,8 +203,10 @@ def logprob_summary(record: Mapping[str, Any] | None) -> Dict[str, Any]:
 
 
 def has_valid_logprob(
-    item: Mapping[str, Any], logprob_field: str
+    item: Mapping[str, Any], logprob_field: str | None
 ) -> bool:
+    if logprob_field is None:
+        return False
     value = item.get(logprob_field)
     return (
         item.get("logprob_available") is True
@@ -219,7 +222,7 @@ def break_tie(
     format_getter: Callable[[Mapping[str, Any]], str] = lambda item: item["format"],
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
-    logprob_field: str = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_mean",
 ) -> TieDecision:
     if not tied_items:
         raise SheetFlexError("Cannot break an empty tie")
@@ -227,6 +230,13 @@ def break_tie(
     if rank_getter is None:
         rank_getter = lambda item: format_rank(format_getter(item))
     validate_tie_break_logprob_field(logprob_field)
+    if logprob_field is None:
+        return TieDecision(
+            min(tied_items, key=rank_getter),
+            fallback_source,
+            False,
+            "logprob_disabled",
+        )
 
     all_available = all(has_valid_logprob(item, logprob_field) for item in tied_items)
     if all_available:
@@ -249,7 +259,7 @@ def break_tie(
     selected = min(tied_items, key=rank_getter)
     missing_reason = (
         "missing_logprob_in_tied_set"
-        if logprob_field == "sequence_logprob_sum"
+        if logprob_field in ["sequence_logprob_sum", "sequence_logprob_mean"]
         else f"missing_or_invalid_{logprob_field}_in_tied_set"
     )
     return TieDecision(

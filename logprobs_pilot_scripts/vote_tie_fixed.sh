@@ -2,7 +2,7 @@ cd /mnt/data/zhw/sheet_router
 
 REPO_DIR="$(pwd)"
 RUN_MAP_ROOT="$REPO_DIR/configs/sheetflex/logprobs_generated_maps"
-VOTE_ROOT="$REPO_DIR/lp_outs/sheetflex_vote_logprobs"
+VOTE_ROOT="$REPO_DIR/lp_outs/sheetflex_vote_tiefixed"
 
 mkdir -p "$RUN_MAP_ROOT" "$VOTE_ROOT"
 

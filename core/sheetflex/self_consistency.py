@@ -212,7 +212,7 @@ def _realhit_vote(
     manifest: Mapping[str, Any],
     records_by_candidate: Mapping[str, Mapping[str, Any] | None],
     structure_key: str | None = None,
-    logprob_field: str = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     rank_map = _rank_map(manifest)
     candidates = []
@@ -253,7 +253,7 @@ def aggregate_self_consistency_realhit_sample(
     item: Mapping[str, Any],
     records_by_candidate: Mapping[str, Mapping[str, Any] | None],
     manifest: Mapping[str, Any],
-    logprob_field: str = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     sample_id = str(item["id"])
     question_type = item.get("QuestionType", "Unknown")
@@ -377,7 +377,7 @@ def aggregate_self_consistency_spreadsheet_sample(
     records_by_candidate: Mapping[str, Mapping[str, Any] | None],
     manifest: Mapping[str, Any],
     input_path: Path,
-    logprob_field: str = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     sample_id = str(item["id"])
     rank_map = _rank_map(manifest)

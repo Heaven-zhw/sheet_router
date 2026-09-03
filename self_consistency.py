@@ -283,7 +283,10 @@ def _common_parser(parser):
         "--tie_break_logprob",
         choices=tuple(TIE_BREAK_LOGPROB_FIELDS),
         default=DEFAULT_TIE_BREAK_LOGPROB,
-        help="Logprob statistic used after a vote/medoid tie (default: mean).",
+        help=(
+            "Logprob statistic used after a vote/medoid tie; none always "
+            "uses sample_index order (default: mean)."
+        ),
     )
 
 

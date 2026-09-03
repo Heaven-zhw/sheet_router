@@ -85,7 +85,7 @@ def aggregate_answer_vote(
     group_ids_field: str = "formats",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
-    logprob_field: str = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     validate_tie_break_logprob_field(logprob_field)
     candidates = [dict(candidate) for candidate in candidates]
@@ -124,6 +124,7 @@ def aggregate_answer_vote(
                 else None
             )
             for field in TIE_BREAK_LOGPROB_FIELDS.values()
+            if field is not None
         }
         representative = min(members, key=rank_getter)
         group = {
@@ -132,7 +133,10 @@ def aggregate_answer_vote(
             "size": len(members),
             "aggregation_score": float(len(members)),
             candidate_id_key: representative[candidate_id_key],
-            "logprob_available": group_logprobs[logprob_field] is not None,
+            "logprob_available": (
+                logprob_field is not None
+                and group_logprobs[logprob_field] is not None
+            ),
             **group_logprobs,
         }
         answer_groups.append(group)
@@ -198,7 +202,7 @@ def aggregate_realhit_sample(
     records_by_format: Mapping[str, Mapping[str, Any] | None],
     run_dirs: Mapping[str, str] | None = None,
     format_order: Sequence[str] = FORMAT_ORDER,
-    logprob_field: str = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     run_dirs = run_dirs or {}
     rank_map = {format_name: index for index, format_name in enumerate(format_order)}

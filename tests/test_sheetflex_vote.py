@@ -76,7 +76,12 @@ class RealHiTVoteTest(unittest.TestCase):
             "sys.argv", argv + ["--tie_break_logprob", "sum"]
         ):
             use_sum = sheetflex_vote_cli.parse_args()
+        with patch(
+            "sys.argv", argv + ["--tie_break_logprob", "none"]
+        ):
+            use_no_logprob = sheetflex_vote_cli.parse_args()
         self.assertEqual(use_sum.tie_break_logprob, "sum")
+        self.assertEqual(use_no_logprob.tie_break_logprob, "none")
 
     def test_self_consistency_cli_defaults_to_mean_and_accepts_sum(self):
         argv = [
@@ -140,6 +145,49 @@ class RealHiTVoteTest(unittest.TestCase):
         self.assertEqual(by_sum["model_answer"], "A")
         self.assertEqual(by_mean["model_answer"], "C")
         self.assertEqual(by_mean["selected_sample_index"], 5)
+
+    def test_self_consistency_can_always_use_sample_index(self):
+        manifest = {
+            "table_format": "latex",
+            "num_samples": 6,
+            "base_seed": 42,
+            "runs": [
+                {
+                    "candidate_id": f"sample_{index}",
+                    "sample_index": index,
+                    "seed": 42 + index,
+                    "run_dir": f"/tmp/sample_{index}",
+                }
+                for index in range(6)
+            ],
+        }
+        answers = ["A", "A", "B", "B", "C", "C"]
+        records = {
+            f"sample_{index}": {
+                "format_valid": True,
+                "model_answer": answers[index],
+                "logprob_available": True,
+                "sequence_logprob_sum": float(index),
+                "sequence_logprob_mean": float(index),
+                "attempts": [{}],
+            }
+            for index in range(6)
+        }
+
+        result = aggregate_self_consistency_realhit_sample(
+            {"id": "sample", "QuestionType": "Fact Checking"},
+            records,
+            manifest,
+            logprob_field=None,
+        )
+
+        self.assertEqual(result["model_answer"], "A")
+        self.assertEqual(result["selected_sample_index"], 0)
+        self.assertEqual(result["tie_break_source"], "sample_index")
+        self.assertEqual(
+            result["trace"]["answer_vote"]["tie_break_reason"],
+            "logprob_disabled",
+        )
 
     def test_normal_majority_vote(self):
         result = aggregate_answer_vote(
@@ -218,6 +266,19 @@ class RealHiTVoteTest(unittest.TestCase):
             result["tie_break_reason"],
             "missing_or_invalid_sequence_logprob_mean_in_tied_set",
         )
+
+    def test_tie_break_can_always_use_format_order(self):
+        result = aggregate_answer_vote(
+            [
+                realhit_candidate("latex", "A", logprob=-100.0),
+                realhit_candidate("markdown", "B", logprob=-1.0),
+            ],
+            logprob_field=None,
+        )
+
+        self.assertEqual(result["selected_format"], "latex")
+        self.assertEqual(result["tie_break_source"], "format_order")
+        self.assertEqual(result["tie_break_reason"], "logprob_disabled")
 
     def test_same_answer_chooses_best_original_candidate(self):
         result = aggregate_answer_vote(
@@ -429,6 +490,27 @@ class SpreadsheetVoteTest(unittest.TestCase):
         self.assertTrue(result["trace"]["tie"])
         self.assertEqual(result["trace"]["tie_break_source"], "logprob")
         self.assertEqual(result["selected_format"], "markdown")
+
+    def test_medoid_tie_can_always_use_format_order(self):
+        records = self.empty_records()
+        records["latex"] = self.record(
+            "latex", {"A1": 0, "B1": 0}, logprob=-100.0
+        )
+        records["markdown"] = self.record(
+            "markdown", {"A1": 1, "B1": 1}, logprob=-1.0
+        )
+
+        result = aggregate_spreadsheet_sample(
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            logprob_field=None,
+        )
+
+        self.assertEqual(result["selected_format"], "latex")
+        self.assertEqual(result["trace"]["tie_break_source"], "format_order")
+        self.assertEqual(result["trace"]["tie_break_reason"], "logprob_disabled")
 
     def test_medoid_tie_can_select_mean_instead_of_sum(self):
         records = self.empty_records()
