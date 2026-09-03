@@ -105,7 +105,7 @@ def select_spreadsheet_medoid(
     selected_id_field: str = "selected_format",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
-    logprob_field: str | None = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_mean",
 ) -> Dict[str, Any]:
     validate_tie_break_logprob_field(logprob_field)
     candidates = [dict(candidate) for candidate in candidates]
@@ -216,7 +216,7 @@ def aggregate_spreadsheet_candidates(
     selected_id_field: str = "selected_format",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
-    logprob_field: str | None = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_mean",
 ) -> Dict[str, Any]:
     """Validate and select candidate workbooks without reading a golden file."""
     sample_id = str(item["id"])
@@ -335,7 +335,7 @@ def aggregate_spreadsheet_sample(
     run_dirs: Mapping[str, Path],
     input_path: Path,
     format_order: Sequence[str] = FORMAT_ORDER,
-    logprob_field: str | None = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_mean",
 ) -> Dict[str, Any]:
     """Select a workbook medoid using only input/candidates and public metadata."""
     sample_id = str(item["id"])

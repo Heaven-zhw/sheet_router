@@ -177,28 +177,43 @@ def load_indexed_runs(
 
 def logprob_summary(record: Mapping[str, Any] | None) -> Dict[str, Any]:
     record = record or {}
-    value = record.get("sequence_logprob_mean")
+
+    sum_value = record.get("sequence_logprob_sum")
+    mean_value = record.get("sequence_logprob_mean")
+
+    def valid_number(value):
+        return (
+            not isinstance(value, bool)
+            and isinstance(value, (int, float))
+            and math.isfinite(value)
+        )
+
     available = (
         record.get("logprob_available") is True
-        and not isinstance(value, bool)
-        and isinstance(value, (int, float))
-        and math.isfinite(value)
+        and (valid_number(sum_value) or valid_number(mean_value))
     )
+
     if available:
         return {
             "logprob_available": True,
-            "sequence_logprob_sum": float(value),
-            "sequence_logprob_mean": record.get("sequence_logprob_mean"),
+            "sequence_logprob_sum": (
+                float(sum_value) if valid_number(sum_value) else None
+            ),
+            "sequence_logprob_mean": (
+                float(mean_value) if valid_number(mean_value) else None
+            ),
             "sequence_token_count": record.get("sequence_token_count"),
             "logprob_unavailable_reason": None,
         }
+
     return {
         "logprob_available": False,
         "sequence_logprob_sum": None,
         "sequence_logprob_mean": None,
         "sequence_token_count": record.get("sequence_token_count", 0),
-        "logprob_unavailable_reason": record.get("logprob_unavailable_reason")
-        or "Candidate result has no valid cumulative sequence logprob.",
+        "logprob_unavailable_reason":
+            record.get("logprob_unavailable_reason")
+            or "Candidate result has no valid sequence logprob.",
     }
 
 

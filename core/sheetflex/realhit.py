@@ -85,7 +85,7 @@ def aggregate_answer_vote(
     group_ids_field: str = "formats",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
-    logprob_field: str | None = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_mean",
 ) -> Dict[str, Any]:
     validate_tie_break_logprob_field(logprob_field)
     candidates = [dict(candidate) for candidate in candidates]
@@ -202,7 +202,7 @@ def aggregate_realhit_sample(
     records_by_format: Mapping[str, Mapping[str, Any] | None],
     run_dirs: Mapping[str, str] | None = None,
     format_order: Sequence[str] = FORMAT_ORDER,
-    logprob_field: str | None = "sequence_logprob_sum",
+    logprob_field: str | None = "sequence_logprob_mean",
 ) -> Dict[str, Any]:
     run_dirs = run_dirs or {}
     rank_map = {format_name: index for index, format_name in enumerate(format_order)}
