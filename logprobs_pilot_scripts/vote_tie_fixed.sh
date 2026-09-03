@@ -47,10 +47,12 @@ EOF
   echo "[RealHiTBench] SheetFlex-vote: $MODEL"
   python sheetflex_vote.py realhit \
     --run_map "$REALHIT_MAP" \
-    --output_dir "$VOTE_ROOT/$MODEL/realhit"
+    --output_dir "$VOTE_ROOT/$MODEL/realhit" \
+    --tie_break_logprob none
 
   echo "[SpreadsheetBench verified_400] SheetFlex-vote: $MODEL"
   python sheetflex_vote.py spreadsheet \
     --run_map "$SPREADSHEET_MAP" \
-    --output_dir "$VOTE_ROOT/$MODEL/spreadsheet"
+    --output_dir "$VOTE_ROOT/$MODEL/spreadsheet" \
+    --tie_break_logprob none
 done
