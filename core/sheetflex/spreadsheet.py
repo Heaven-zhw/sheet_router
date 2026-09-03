@@ -25,6 +25,7 @@ from .common import (
     max_score_items,
     numeric_summary,
     safe_rate,
+    validate_tie_break_logprob_field,
 )
 
 
@@ -104,7 +105,9 @@ def select_spreadsheet_medoid(
     selected_id_field: str = "selected_format",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
+    validate_tie_break_logprob_field(logprob_field)
     candidates = [dict(candidate) for candidate in candidates]
     if rank_getter is None:
         rank_getter = lambda item: FORMAT_ORDER.index(item[candidate_id_key])
@@ -132,6 +135,7 @@ def select_spreadsheet_medoid(
             "tied_candidate_count": 0,
             "tie_break_source": "not_applicable",
             "tie_break_reason": "all_candidates_invalid",
+            "tie_break_logprob_field": logprob_field,
         }
 
     for left_index, left in enumerate(valid):
@@ -157,6 +161,7 @@ def select_spreadsheet_medoid(
             tied,
             rank_getter=rank_getter,
             fallback_source=fallback_source,
+            logprob_field=logprob_field,
         )
         selected = decision.selected
         tie_source = decision.source
@@ -184,6 +189,7 @@ def select_spreadsheet_medoid(
         "tied_candidate_count": len(tied),
         "tie_break_source": tie_source,
         "tie_break_reason": tie_reason,
+        "tie_break_logprob_field": logprob_field,
     }
 
 
@@ -210,6 +216,7 @@ def aggregate_spreadsheet_candidates(
     selected_id_field: str = "selected_format",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     """Validate and select candidate workbooks without reading a golden file."""
     sample_id = str(item["id"])
@@ -299,6 +306,7 @@ def aggregate_spreadsheet_candidates(
         selected_id_field=selected_id_field,
         rank_getter=rank_getter,
         fallback_source=fallback_source,
+        logprob_field=logprob_field,
     )
     return {
         "id": sample_id,
@@ -327,6 +335,7 @@ def aggregate_spreadsheet_sample(
     run_dirs: Mapping[str, Path],
     input_path: Path,
     format_order: Sequence[str] = FORMAT_ORDER,
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     """Select a workbook medoid using only input/candidates and public metadata."""
     sample_id = str(item["id"])
@@ -350,6 +359,7 @@ def aggregate_spreadsheet_sample(
         candidate_specs,
         input_path,
         rank_getter=lambda candidate: rank_map[candidate["format"]],
+        logprob_field=logprob_field,
     )
 
 

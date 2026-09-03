@@ -5,10 +5,13 @@ import json
 from pathlib import Path
 
 from core.sheetflex.common import (
+    DEFAULT_TIE_BREAK_LOGPROB,
     DEFAULT_TIE_BREAK_ORDER,
     FORMAT_ORDER,
     FORMAT_ORDERS,
+    TIE_BREAK_LOGPROB_FIELDS,
     get_format_order,
+    get_tie_break_logprob_field,
     index_rows_by_id,
     load_indexed_runs,
     load_result_rows,
@@ -62,6 +65,7 @@ def _resolved_run_map_trace(run_map):
 def run_realhit(args):
     output_dir = prepare_output_dir(args.output_dir)
     format_order = get_format_order(args.tie_break_order)
+    logprob_field = get_tie_break_logprob_field(args.tie_break_logprob)
     run_map = load_run_map(args.run_map)
     indexed_runs = load_indexed_runs(run_map, "realhit_cot.jsonl")
 
@@ -86,6 +90,7 @@ def run_realhit(args):
             records,
             run_dirs=run_dirs,
             format_order=format_order,
+            logprob_field=logprob_field,
         )
         aggregate.update(
             {
@@ -104,6 +109,7 @@ def run_realhit(args):
             "benchmark": "realhitbench",
             "method": "SheetFlex-vote",
             "tie_break_order": args.tie_break_order,
+            "tie_break_logprob": args.tie_break_logprob,
             "run_map": run_dirs,
         }
     )
@@ -121,6 +127,7 @@ def run_realhit(args):
 def run_spreadsheet(args):
     output_dir = prepare_output_dir(args.output_dir)
     format_order = get_format_order(args.tie_break_order)
+    logprob_field = get_tie_break_logprob_field(args.tie_break_logprob)
     run_map = load_run_map(args.run_map)
     indexed_runs = load_indexed_runs(run_map, "spreadsheet_pot.jsonl")
 
@@ -144,6 +151,7 @@ def run_spreadsheet(args):
                 run_map,
                 spreadsheet_input_path(dataset_root, item),
                 format_order=format_order,
+                logprob_field=logprob_field,
             )
         )
 
@@ -157,6 +165,7 @@ def run_spreadsheet(args):
             "benchmark": "spreadsheetbench_verified_400",
             "method": "SheetFlex-vote",
             "tie_break_order": args.tie_break_order,
+            "tie_break_logprob": args.tie_break_logprob,
             "run_map": _resolved_run_map_trace(run_map),
             "copied_output_workbooks": copied,
         }
@@ -182,6 +191,12 @@ def _common_parser(subparser):
         choices=tuple(FORMAT_ORDERS),
         default=DEFAULT_TIE_BREAK_ORDER,
         help="Format fallback order used when cumulative logprobs cannot decide a tie.",
+    )
+    subparser.add_argument(
+        "--tie_break_logprob",
+        choices=tuple(TIE_BREAK_LOGPROB_FIELDS),
+        default=DEFAULT_TIE_BREAK_LOGPROB,
+        help="Logprob statistic used after a vote/medoid tie (default: mean).",
     )
 
 

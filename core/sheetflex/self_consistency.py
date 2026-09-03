@@ -212,6 +212,7 @@ def _realhit_vote(
     manifest: Mapping[str, Any],
     records_by_candidate: Mapping[str, Mapping[str, Any] | None],
     structure_key: str | None = None,
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     rank_map = _rank_map(manifest)
     candidates = []
@@ -241,6 +242,7 @@ def _realhit_vote(
         group_ids_field="candidate_ids",
         rank_getter=lambda item: rank_map[item["candidate_id"]],
         fallback_source="sample_index",
+        logprob_field=logprob_field,
     )
     for candidate in vote["candidates"]:
         candidate["candidate_valid"] = candidate["valid"]
@@ -251,6 +253,7 @@ def aggregate_self_consistency_realhit_sample(
     item: Mapping[str, Any],
     records_by_candidate: Mapping[str, Mapping[str, Any] | None],
     manifest: Mapping[str, Any],
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     sample_id = str(item["id"])
     question_type = item.get("QuestionType", "Unknown")
@@ -263,10 +266,16 @@ def aggregate_self_consistency_realhit_sample(
     }
     if question_type == "Structure Comprehending":
         reference_vote = _realhit_vote(
-            manifest, records_by_candidate, "structure_reference_run"
+            manifest,
+            records_by_candidate,
+            "structure_reference_run",
+            logprob_field,
         )
         swap_vote = _realhit_vote(
-            manifest, records_by_candidate, "structure_swap_run"
+            manifest,
+            records_by_candidate,
+            "structure_swap_run",
+            logprob_field,
         )
         reference_selected = _selected_candidate(reference_vote)
         swap_selected = _selected_candidate(swap_vote)
@@ -334,7 +343,9 @@ def aggregate_self_consistency_realhit_sample(
             },
         }
 
-    vote = _realhit_vote(manifest, records_by_candidate)
+    vote = _realhit_vote(
+        manifest, records_by_candidate, logprob_field=logprob_field
+    )
     selected = _selected_candidate(vote)
     return {
         **common,
@@ -366,6 +377,7 @@ def aggregate_self_consistency_spreadsheet_sample(
     records_by_candidate: Mapping[str, Mapping[str, Any] | None],
     manifest: Mapping[str, Any],
     input_path: Path,
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     sample_id = str(item["id"])
     rank_map = _rank_map(manifest)
@@ -400,6 +412,7 @@ def aggregate_self_consistency_spreadsheet_sample(
         selected_id_field="selected_candidate_id",
         rank_getter=lambda candidate: rank_map[candidate["candidate_id"]],
         fallback_source="sample_index",
+        logprob_field=logprob_field,
     )
     for candidate in aggregate["trace"]["candidates"]:
         candidate["candidate_valid"] = candidate["valid"]

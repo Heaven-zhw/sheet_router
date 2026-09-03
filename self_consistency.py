@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 
 from core.sheetflex.common import (
+    DEFAULT_TIE_BREAK_LOGPROB,
     SheetFlexError,
+    TIE_BREAK_LOGPROB_FIELDS,
+    get_tie_break_logprob_field,
     index_rows_by_id,
     load_result_rows,
     save_json,
@@ -59,9 +62,18 @@ def select_dataset_rows(dataset_rows, candidate_ids, ids=None, limit=0):
     return selected[:limit] if limit and limit > 0 else selected
 
 
-def prepare_output_dir(output_dir, manifest, resume=False):
+def prepare_output_dir(
+    output_dir,
+    manifest,
+    resume=False,
+    tie_break_logprob=DEFAULT_TIE_BREAK_LOGPROB,
+):
     output_dir = Path(output_dir).resolve()
     manifest_copy = output_dir / "manifest.json"
+    output_manifest = dict(manifest)
+    output_manifest["aggregation_config"] = {
+        "tie_break_logprob": tie_break_logprob,
+    }
     if output_dir.exists() and any(output_dir.iterdir()):
         if not resume:
             raise SheetFlexError(
@@ -76,9 +88,17 @@ def prepare_output_dir(output_dir, manifest, resume=False):
             raise SelfConsistencyError(
                 "Cannot resume: output manifest does not match requested experiment"
             )
+        existing_statistic = existing.get("aggregation_config", {}).get(
+            "tie_break_logprob", "sum"
+        )
+        if existing_statistic != tie_break_logprob:
+            raise SelfConsistencyError(
+                "Cannot resume: output tie-break logprob statistic does not "
+                "match requested strategy"
+            )
     else:
         output_dir.mkdir(parents=True, exist_ok=True)
-    save_json(manifest, manifest_copy)
+    save_json(output_manifest, manifest_copy)
     return output_dir
 
 
@@ -89,8 +109,11 @@ def _indexed_run_ids(indexed_runs):
 
 def run_realhit(args):
     manifest = load_self_consistency_manifest(args.manifest, "realhitbench")
+    logprob_field = get_tie_break_logprob_field(args.tie_break_logprob)
     indexed_runs = load_indexed_candidate_runs(manifest, "realhit_cot.jsonl")
-    output_dir = prepare_output_dir(args.output_dir, manifest, args.resume)
+    output_dir = prepare_output_dir(
+        args.output_dir, manifest, args.resume, args.tie_break_logprob
+    )
 
     dataset_payload = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     dataset_rows = dataset_payload.get("queries")
@@ -109,7 +132,7 @@ def run_realhit(args):
             for run in manifest["runs"]
         }
         aggregate = aggregate_self_consistency_realhit_sample(
-            item, records, manifest
+            item, records, manifest, logprob_field=logprob_field
         )
         aggregate.update(
             {
@@ -145,6 +168,7 @@ def run_realhit(args):
             "num_candidates": manifest["num_samples"],
             "base_seed": manifest["base_seed"],
             "manifest": manifest["manifest_path"],
+            "tie_break_logprob": args.tie_break_logprob,
         }
     )
     save_jsonl(aggregates, output_dir / "self_consistency.jsonl")
@@ -164,10 +188,13 @@ def run_spreadsheet(args):
     manifest = load_self_consistency_manifest(
         args.manifest, "spreadsheetbench_verified_400"
     )
+    logprob_field = get_tie_break_logprob_field(args.tie_break_logprob)
     indexed_runs = load_indexed_candidate_runs(
         manifest, "spreadsheet_pot.jsonl"
     )
-    output_dir = prepare_output_dir(args.output_dir, manifest, args.resume)
+    output_dir = prepare_output_dir(
+        args.output_dir, manifest, args.resume, args.tie_break_logprob
+    )
 
     dataset_root = Path(args.dataset_root).resolve()
     dataset_path = dataset_root / "dataset.json"
@@ -190,6 +217,7 @@ def run_spreadsheet(args):
                 records,
                 manifest,
                 spreadsheet_input_path(dataset_root, item),
+                logprob_field=logprob_field,
             )
         )
 
@@ -228,6 +256,7 @@ def run_spreadsheet(args):
             "num_candidates": manifest["num_samples"],
             "base_seed": manifest["base_seed"],
             "manifest": manifest["manifest_path"],
+            "tie_break_logprob": args.tie_break_logprob,
             "copied_output_workbooks": copied,
         }
     )
@@ -250,6 +279,12 @@ def _common_parser(parser):
     parser.add_argument("--ids", default=None)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--tie_break_logprob",
+        choices=tuple(TIE_BREAK_LOGPROB_FIELDS),
+        default=DEFAULT_TIE_BREAK_LOGPROB,
+        help="Logprob statistic used after a vote/medoid tie (default: mean).",
+    )
 
 
 def parse_args():

@@ -6,12 +6,15 @@ from typing import Any, Callable, Dict, Mapping, Sequence
 from ..solver.metrics.qa_metrics import QAMetric, normalize_answer, process_decimal
 from .common import (
     FORMAT_ORDER,
+    TIE_BREAK_LOGPROB_FIELDS,
     break_tie,
     count_distribution,
     format_rank,
+    has_valid_logprob,
     logprob_summary,
     max_score_items,
     safe_rate,
+    validate_tie_break_logprob_field,
 )
 
 
@@ -82,7 +85,9 @@ def aggregate_answer_vote(
     group_ids_field: str = "formats",
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
+    validate_tie_break_logprob_field(logprob_field)
     candidates = [dict(candidate) for candidate in candidates]
     if rank_getter is None:
         rank_getter = lambda item: format_rank(item[candidate_id_key])
@@ -103,6 +108,7 @@ def aggregate_answer_vote(
             "tie_break_reason": "all_candidates_invalid",
             "representative_selection_source": "not_applicable",
             "representative_selection_reason": "all_candidates_invalid",
+            "tie_break_logprob_field": logprob_field,
         }
 
     grouped = {}
@@ -111,12 +117,14 @@ def aggregate_answer_vote(
 
     answer_groups = []
     for normalized_answer, members in grouped.items():
-        all_logprobs = all(member["logprob_available"] for member in members)
-        group_logprob = (
-            max(member["sequence_logprob_sum"] for member in members)
-            if all_logprobs
-            else None
-        )
+        group_logprobs = {
+            field: (
+                max(float(member[field]) for member in members)
+                if all(has_valid_logprob(member, field) for member in members)
+                else None
+            )
+            for field in TIE_BREAK_LOGPROB_FIELDS.values()
+        }
         representative = min(members, key=rank_getter)
         group = {
             "normalized_answer": normalized_answer,
@@ -124,8 +132,8 @@ def aggregate_answer_vote(
             "size": len(members),
             "aggregation_score": float(len(members)),
             candidate_id_key: representative[candidate_id_key],
-            "logprob_available": all_logprobs,
-            "sequence_logprob_sum": group_logprob,
+            "logprob_available": group_logprobs[logprob_field] is not None,
+            **group_logprobs,
         }
         answer_groups.append(group)
         for member in members:
@@ -138,6 +146,7 @@ def aggregate_answer_vote(
             tied_groups,
             rank_getter=rank_getter,
             fallback_source=fallback_source,
+            logprob_field=logprob_field,
         )
         winning_group = group_decision.selected
         tie_source = group_decision.source
@@ -153,6 +162,7 @@ def aggregate_answer_vote(
             winning_members,
             rank_getter=rank_getter,
             fallback_source=fallback_source,
+            logprob_field=logprob_field,
         )
         selected = member_decision.selected
         representative_source = member_decision.source
@@ -178,6 +188,7 @@ def aggregate_answer_vote(
         "tie_break_reason": tie_reason,
         "representative_selection_source": representative_source,
         "representative_selection_reason": representative_reason,
+        "tie_break_logprob_field": logprob_field,
     }
 
 
@@ -187,6 +198,7 @@ def aggregate_realhit_sample(
     records_by_format: Mapping[str, Mapping[str, Any] | None],
     run_dirs: Mapping[str, str] | None = None,
     format_order: Sequence[str] = FORMAT_ORDER,
+    logprob_field: str = "sequence_logprob_sum",
 ) -> Dict[str, Any]:
     run_dirs = run_dirs or {}
     rank_map = {format_name: index for index, format_name in enumerate(format_order)}
@@ -203,6 +215,7 @@ def aggregate_realhit_sample(
                 for format_name in format_order
             ],
             rank_getter=rank_getter,
+            logprob_field=logprob_field,
         )
         swap_vote = aggregate_answer_vote(
             [
@@ -215,6 +228,7 @@ def aggregate_realhit_sample(
                 for format_name in format_order
             ],
             rank_getter=rank_getter,
+            logprob_field=logprob_field,
         )
         valid_formats = {
             candidate["format"]
@@ -254,6 +268,7 @@ def aggregate_realhit_sample(
             for format_name in format_order
         ],
         rank_getter=rank_getter,
+        logprob_field=logprob_field,
     )
     return {
         "id": str(sample_id),

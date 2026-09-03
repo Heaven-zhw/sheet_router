@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import openpyxl
+import self_consistency as self_consistency_cli
 import sheetflex_vote as sheetflex_vote_cli
 
 from core.sheetflex.common import (
@@ -16,6 +17,9 @@ from core.sheetflex.common import (
     max_score_items,
 )
 from core.sheetflex.realhit import aggregate_answer_vote, aggregate_realhit_sample
+from core.sheetflex.self_consistency import (
+    aggregate_self_consistency_realhit_sample,
+)
 from core.sheetflex.spreadsheet import (
     aggregate_spreadsheet_sample,
     copy_selected_workbooks,
@@ -67,6 +71,75 @@ class RealHiTVoteTest(unittest.TestCase):
             legacy = sheetflex_vote_cli.parse_args()
         self.assertEqual(recommend.tie_break_order, "recommend")
         self.assertEqual(legacy.tie_break_order, "legacy")
+        self.assertEqual(recommend.tie_break_logprob, "mean")
+        with patch(
+            "sys.argv", argv + ["--tie_break_logprob", "sum"]
+        ):
+            use_sum = sheetflex_vote_cli.parse_args()
+        self.assertEqual(use_sum.tie_break_logprob, "sum")
+
+    def test_self_consistency_cli_defaults_to_mean_and_accepts_sum(self):
+        argv = [
+            "self_consistency.py",
+            "realhit",
+            "--manifest",
+            "m",
+            "--output_dir",
+            "o",
+        ]
+        with patch("sys.argv", argv):
+            use_mean = self_consistency_cli.parse_args()
+        with patch(
+            "sys.argv", argv + ["--tie_break_logprob", "sum"]
+        ):
+            use_sum = self_consistency_cli.parse_args()
+        self.assertEqual(use_mean.tie_break_logprob, "mean")
+        self.assertEqual(use_sum.tie_break_logprob, "sum")
+
+    def test_self_consistency_tie_break_can_use_mean(self):
+        manifest = {
+            "table_format": "latex",
+            "num_samples": 6,
+            "base_seed": 42,
+            "runs": [
+                {
+                    "candidate_id": f"sample_{index}",
+                    "sample_index": index,
+                    "seed": 42 + index,
+                    "run_dir": f"/tmp/sample_{index}",
+                }
+                for index in range(6)
+            ],
+        }
+        answers = ["A", "A", "B", "B", "C", "C"]
+        sums = [-1.0, -2.0, -3.0, -4.0, -5.0, -6.0]
+        means = [-3.0, -4.0, -2.0, -3.0, -0.2, -0.1]
+        records = {
+            f"sample_{index}": {
+                "format_valid": True,
+                "model_answer": answers[index],
+                "logprob_available": True,
+                "sequence_logprob_sum": sums[index],
+                "sequence_logprob_mean": means[index],
+                "attempts": [{}],
+            }
+            for index in range(6)
+        }
+        item = {"id": "sample", "QuestionType": "Fact Checking"}
+
+        by_sum = aggregate_self_consistency_realhit_sample(
+            item, records, manifest
+        )
+        by_mean = aggregate_self_consistency_realhit_sample(
+            item,
+            records,
+            manifest,
+            logprob_field="sequence_logprob_mean",
+        )
+
+        self.assertEqual(by_sum["model_answer"], "A")
+        self.assertEqual(by_mean["model_answer"], "C")
+        self.assertEqual(by_mean["selected_sample_index"], 5)
 
     def test_normal_majority_vote(self):
         result = aggregate_answer_vote(
@@ -109,6 +182,43 @@ class RealHiTVoteTest(unittest.TestCase):
         self.assertEqual(result["tie_break_source"], "logprob")
         self.assertEqual(result["selected_format"], "markdown")
 
+    def test_tie_break_can_select_mean_instead_of_sum(self):
+        latex = realhit_candidate("latex", "A", logprob=-1.0)
+        markdown = realhit_candidate("markdown", "B", logprob=-2.0)
+        latex["sequence_logprob_mean"] = -2.0
+        markdown["sequence_logprob_mean"] = -0.1
+
+        by_sum = aggregate_answer_vote([latex, markdown])
+        by_mean = aggregate_answer_vote(
+            [latex, markdown], logprob_field="sequence_logprob_mean"
+        )
+
+        self.assertEqual(by_sum["selected_format"], "latex")
+        self.assertEqual(by_mean["selected_format"], "markdown")
+        self.assertEqual(
+            by_mean["tie_break_reason"], "highest_sequence_logprob_mean"
+        )
+        self.assertEqual(
+            by_mean["tie_break_logprob_field"], "sequence_logprob_mean"
+        )
+
+    def test_missing_mean_does_not_fall_back_to_sum(self):
+        latex = realhit_candidate("latex", "A", logprob=-10.0)
+        markdown = realhit_candidate("markdown", "B", logprob=-1.0)
+        latex["sequence_logprob_mean"] = None
+        markdown["sequence_logprob_mean"] = -0.1
+
+        result = aggregate_answer_vote(
+            [latex, markdown], logprob_field="sequence_logprob_mean"
+        )
+
+        self.assertEqual(result["selected_format"], "latex")
+        self.assertEqual(result["tie_break_source"], "format_order")
+        self.assertEqual(
+            result["tie_break_reason"],
+            "missing_or_invalid_sequence_logprob_mean_in_tied_set",
+        )
+
     def test_same_answer_chooses_best_original_candidate(self):
         result = aggregate_answer_vote(
             [
@@ -120,6 +230,23 @@ class RealHiTVoteTest(unittest.TestCase):
         self.assertFalse(result["tie"])
         self.assertEqual(result["selected_format"], "markdown")
         self.assertEqual(result["representative_selection_source"], "logprob")
+
+    def test_same_answer_representative_can_use_mean(self):
+        latex = realhit_candidate("latex", "Same", logprob=-1.0)
+        markdown = realhit_candidate("markdown", "Same", logprob=-2.0)
+        latex["sequence_logprob_mean"] = -2.0
+        markdown["sequence_logprob_mean"] = -0.1
+
+        result = aggregate_answer_vote(
+            [latex, markdown], logprob_field="sequence_logprob_mean"
+        )
+
+        self.assertEqual(result["selected_format"], "markdown")
+        self.assertEqual(result["representative_selection_source"], "logprob")
+        self.assertEqual(
+            result["representative_selection_reason"],
+            "highest_sequence_logprob_mean",
+        )
 
     def test_missing_logprob_and_input_order_use_fixed_format_order(self):
         candidates = [
@@ -240,7 +367,15 @@ class SpreadsheetVoteTest(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def record(self, format_name, values=None, *, success=True, logprob=None):
+    def record(
+        self,
+        format_name,
+        values=None,
+        *,
+        success=True,
+        logprob=None,
+        logprob_mean=None,
+    ):
         if values is not None:
             save_book(
                 self.run_dirs[format_name]
@@ -254,6 +389,9 @@ class SpreadsheetVoteTest(unittest.TestCase):
             "execution_success": success,
             "logprob_available": logprob is not None,
             "sequence_logprob_sum": logprob,
+            "sequence_logprob_mean": (
+                logprob if logprob_mean is None else logprob_mean
+            ),
         }
 
     def empty_records(self):
@@ -291,6 +429,39 @@ class SpreadsheetVoteTest(unittest.TestCase):
         self.assertTrue(result["trace"]["tie"])
         self.assertEqual(result["trace"]["tie_break_source"], "logprob")
         self.assertEqual(result["selected_format"], "markdown")
+
+    def test_medoid_tie_can_select_mean_instead_of_sum(self):
+        records = self.empty_records()
+        records["latex"] = self.record(
+            "latex",
+            {"A1": 0, "B1": 0},
+            logprob=-1.0,
+            logprob_mean=-2.0,
+        )
+        records["markdown"] = self.record(
+            "markdown",
+            {"A1": 1, "B1": 1},
+            logprob=-2.0,
+            logprob_mean=-0.1,
+        )
+
+        by_sum = aggregate_spreadsheet_sample(
+            self.item, records, self.run_dirs, self.input_path
+        )
+        by_mean = aggregate_spreadsheet_sample(
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            logprob_field="sequence_logprob_mean",
+        )
+
+        self.assertEqual(by_sum["selected_format"], "latex")
+        self.assertEqual(by_mean["selected_format"], "markdown")
+        self.assertEqual(
+            by_mean["trace"]["tie_break_reason"],
+            "highest_sequence_logprob_mean",
+        )
 
     def test_medoid_tie_missing_logprob_uses_fixed_order(self):
         records = self.empty_records()
