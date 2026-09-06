@@ -236,7 +236,9 @@ class RealHiTVoteTest(unittest.TestCase):
         latex["sequence_logprob_mean"] = -2.0
         markdown["sequence_logprob_mean"] = -0.1
 
-        by_sum = aggregate_answer_vote([latex, markdown])
+        by_sum = aggregate_answer_vote(
+            [latex, markdown], logprob_field="sequence_logprob_sum"
+        )
         by_mean = aggregate_answer_vote(
             [latex, markdown], logprob_field="sequence_logprob_mean"
         )
@@ -264,7 +266,7 @@ class RealHiTVoteTest(unittest.TestCase):
         self.assertEqual(result["tie_break_source"], "format_order")
         self.assertEqual(
             result["tie_break_reason"],
-            "missing_or_invalid_sequence_logprob_mean_in_tied_set",
+            "missing_logprob_in_tied_set",
         )
 
     def test_tie_break_can_always_use_format_order(self):
@@ -528,7 +530,11 @@ class SpreadsheetVoteTest(unittest.TestCase):
         )
 
         by_sum = aggregate_spreadsheet_sample(
-            self.item, records, self.run_dirs, self.input_path
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            logprob_field="sequence_logprob_sum",
         )
         by_mean = aggregate_spreadsheet_sample(
             self.item,

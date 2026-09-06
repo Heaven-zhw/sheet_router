@@ -98,6 +98,32 @@ def cell_map_similarity(
     return matched / len(left)
 
 
+def build_similarity_matrix(
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    candidate_id_key: str = "format",
+) -> tuple[dict, list[float]]:
+    """Build the existing target-region similarity matrix for valid candidates."""
+    valid = [candidate for candidate in candidates if candidate["valid"]]
+    matrix = {
+        left[candidate_id_key]: {
+            right[candidate_id_key]: None for right in candidates
+        }
+        for left in candidates
+    }
+    pairwise_values = []
+    for left_index, left in enumerate(valid):
+        for right_index, right in enumerate(valid):
+            if right_index < left_index:
+                similarity = matrix[right[candidate_id_key]][left[candidate_id_key]]
+            else:
+                similarity = cell_map_similarity(left["_cells"], right["_cells"])
+            matrix[left[candidate_id_key]][right[candidate_id_key]] = similarity
+            if right_index > left_index:
+                pairwise_values.append(similarity)
+    return matrix, pairwise_values
+
+
 def select_spreadsheet_medoid(
     candidates: Sequence[Mapping[str, Any]],
     *,
@@ -112,13 +138,9 @@ def select_spreadsheet_medoid(
     if rank_getter is None:
         rank_getter = lambda item: FORMAT_ORDER.index(item[candidate_id_key])
     valid = [candidate for candidate in candidates if candidate["valid"]]
-    matrix = {
-        left[candidate_id_key]: {
-            right[candidate_id_key]: None for right in candidates
-        }
-        for left in candidates
-    }
-    pairwise_values = []
+    matrix, pairwise_values = build_similarity_matrix(
+        candidates, candidate_id_key=candidate_id_key
+    )
     if not valid:
         for candidate in candidates:
             candidate.pop("_cells", None)
@@ -137,16 +159,6 @@ def select_spreadsheet_medoid(
             "tie_break_reason": "all_candidates_invalid",
             "tie_break_logprob_field": logprob_field,
         }
-
-    for left_index, left in enumerate(valid):
-        for right_index, right in enumerate(valid):
-            if right_index < left_index:
-                similarity = matrix[right[candidate_id_key]][left[candidate_id_key]]
-            else:
-                similarity = cell_map_similarity(left["_cells"], right["_cells"])
-            matrix[left[candidate_id_key]][right[candidate_id_key]] = similarity
-            if right_index > left_index:
-                pairwise_values.append(similarity)
 
     for candidate in valid:
         candidate["aggregation_score"] = sum(
@@ -217,6 +229,9 @@ def aggregate_spreadsheet_candidates(
     rank_getter: Callable[[Mapping[str, Any]], Any] | None = None,
     fallback_source: str = "format_order",
     logprob_field: str | None = "sequence_logprob_mean",
+    selection_fn: Callable[..., Dict[str, Any]] | None = None,
+    selection_kwargs: Mapping[str, Any] | None = None,
+    aggregation_name: str = "equal_weight_region_medoid",
 ) -> Dict[str, Any]:
     """Validate and select candidate workbooks without reading a golden file."""
     sample_id = str(item["id"])
@@ -300,13 +315,15 @@ def aggregate_spreadsheet_candidates(
         candidate.update(logprob_summary(record))
         candidates.append(candidate)
 
-    selection = select_spreadsheet_medoid(
+    selection_fn = selection_fn or select_spreadsheet_medoid
+    selection = selection_fn(
         candidates,
         candidate_id_key=candidate_id_key,
         selected_id_field=selected_id_field,
         rank_getter=rank_getter,
         fallback_source=fallback_source,
         logprob_field=logprob_field,
+        **dict(selection_kwargs or {}),
     )
     return {
         "id": sample_id,
@@ -319,7 +336,7 @@ def aggregate_spreadsheet_candidates(
         "selected_source_file": selection["selected_source_file"],
         "valid_candidate_count": selection["valid_candidate_count"],
         "trace": {
-            "aggregation": "equal_weight_region_medoid",
+            "aggregation": aggregation_name,
             "boundary_sources": ["input", *candidate_ids],
             "max_rows_by_sheet": max_rows,
             "max_columns_by_sheet": max_columns,
@@ -336,6 +353,9 @@ def aggregate_spreadsheet_sample(
     input_path: Path,
     format_order: Sequence[str] = FORMAT_ORDER,
     logprob_field: str | None = "sequence_logprob_mean",
+    selection_fn: Callable[..., Dict[str, Any]] | None = None,
+    selection_kwargs: Mapping[str, Any] | None = None,
+    aggregation_name: str = "equal_weight_region_medoid",
 ) -> Dict[str, Any]:
     """Select a workbook medoid using only input/candidates and public metadata."""
     sample_id = str(item["id"])
@@ -360,6 +380,9 @@ def aggregate_spreadsheet_sample(
         input_path,
         rank_getter=lambda candidate: rank_map[candidate["format"]],
         logprob_field=logprob_field,
+        selection_fn=selection_fn,
+        selection_kwargs=selection_kwargs,
+        aggregation_name=aggregation_name,
     )
 
 
