@@ -12,6 +12,7 @@ outs/
 sc_outs/
 lp_outs/
 tests/
+analysis/
 
 # Dataset policy:
 # - keep original spreadsheet files
