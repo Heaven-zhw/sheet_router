@@ -11,8 +11,9 @@ MODELS=(
   "gemma-4-12B-it"
   #"gemma-4-26B-A4B-it"
   "Qwen3.5-9B"
-  #"Qwen3-VL-30B-A3B-Instruct"
+  "Qwen3-VL-30B-A3B-Instruct"
 )
+
 
 for MODEL in "${MODELS[@]}"; do
   echo "============================================================"

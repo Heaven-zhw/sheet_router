@@ -111,6 +111,13 @@ answer_position 的全部关键区域可读取
 候选与输入解析出的关键区域坐标一致
 ```
 
+SpreadsheetBench 可选启用目标区域 no-op 过滤：复用现有
+`compare_cell_value` 比较输入与候选的全部关键区域单元格；若没有任何值发生变化，
+则在相似度、等价类和聚合分数计算前将该候选标记为无效，原因为
+`target_region_values_unchanged_from_input`。该过滤默认关闭以保持既有实验兼容，
+不读取 golden；对于只要求样式、字体、颜色或条件格式变化的任务，不能仅凭目标值
+no-op 排除候选。
+
 所有结果必须按字符串化 `sample_id` 和 `format` 对齐，不依赖数组位置。
 
 ## 4. 固定顺序

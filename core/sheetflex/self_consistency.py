@@ -378,6 +378,7 @@ def aggregate_self_consistency_spreadsheet_sample(
     manifest: Mapping[str, Any],
     input_path: Path,
     logprob_field: str | None = "sequence_logprob_sum",
+    exclude_unchanged_target_values: bool = False,
 ) -> Dict[str, Any]:
     sample_id = str(item["id"])
     rank_map = _rank_map(manifest)
@@ -413,6 +414,7 @@ def aggregate_self_consistency_spreadsheet_sample(
         rank_getter=lambda candidate: rank_map[candidate["candidate_id"]],
         fallback_source="sample_index",
         logprob_field=logprob_field,
+        exclude_unchanged_target_values=exclude_unchanged_target_values,
     )
     for candidate in aggregate["trace"]["candidates"]:
         candidate["candidate_valid"] = candidate["valid"]

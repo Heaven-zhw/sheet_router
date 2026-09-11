@@ -98,6 +98,21 @@ def cell_map_similarity(
     return matched / len(left)
 
 
+def count_changed_region_cells(
+    input_cells: Mapping[tuple[str, str], Any],
+    candidate_cells: Mapping[tuple[str, str], Any],
+) -> int:
+    """Count target cells changed from input under benchmark value semantics."""
+    if list(input_cells) != list(candidate_cells):
+        raise SpreadsheetRegionError(
+            "Candidate region coordinate mappings differ from input"
+        )
+    return sum(
+        not compare_cell_value(input_cells[key], candidate_cells[key])
+        for key in input_cells
+    )
+
+
 def build_similarity_matrix(
     candidates: Sequence[Mapping[str, Any]],
     *,
@@ -232,6 +247,7 @@ def aggregate_spreadsheet_candidates(
     selection_fn: Callable[..., Dict[str, Any]] | None = None,
     selection_kwargs: Mapping[str, Any] | None = None,
     aggregation_name: str = "equal_weight_region_medoid",
+    exclude_unchanged_target_values: bool = False,
 ) -> Dict[str, Any]:
     """Validate and select candidate workbooks without reading a golden file."""
     sample_id = str(item["id"])
@@ -270,6 +286,10 @@ def aggregate_spreadsheet_candidates(
         valid = True
         invalid_reason = None
         cells = None
+        changed_cell_count = None
+        target_change_ratio = None
+        target_value_unchanged = None
+        excluded_by_unchanged_target_values = False
         if record is None:
             valid = False
             invalid_reason = "sample_id_missing_from_run_results"
@@ -295,6 +315,13 @@ def aggregate_spreadsheet_candidates(
                     raise SpreadsheetRegionError(
                         "Candidate region coordinates differ from input coordinates"
                     )
+                changed_cell_count = count_changed_region_cells(input_cells, cells)
+                target_change_ratio = changed_cell_count / len(cells)
+                target_value_unchanged = changed_cell_count == 0
+                if exclude_unchanged_target_values and target_value_unchanged:
+                    valid = False
+                    excluded_by_unchanged_target_values = True
+                    invalid_reason = "target_region_values_unchanged_from_input"
             except Exception as exc:
                 valid = False
                 invalid_reason = f"failed_to_extract_candidate_regions: {exc}"
@@ -306,6 +333,12 @@ def aggregate_spreadsheet_candidates(
             "valid": valid,
             "invalid_reason": invalid_reason,
             "region_cell_count": len(cells) if cells is not None else None,
+            "target_changed_cell_count": changed_cell_count,
+            "target_change_ratio": target_change_ratio,
+            "target_value_unchanged": target_value_unchanged,
+            "excluded_by_unchanged_target_values": (
+                excluded_by_unchanged_target_values
+            ),
             "region_hash": normalized_region_hash(cells) if cells is not None else None,
             "aggregation_score": None,
             "selected": False,
@@ -341,6 +374,7 @@ def aggregate_spreadsheet_candidates(
             "max_rows_by_sheet": max_rows,
             "max_columns_by_sheet": max_columns,
             "input_region_error": input_error,
+            "exclude_unchanged_target_values": exclude_unchanged_target_values,
             **selection,
         },
     }
@@ -356,6 +390,7 @@ def aggregate_spreadsheet_sample(
     selection_fn: Callable[..., Dict[str, Any]] | None = None,
     selection_kwargs: Mapping[str, Any] | None = None,
     aggregation_name: str = "equal_weight_region_medoid",
+    exclude_unchanged_target_values: bool = False,
 ) -> Dict[str, Any]:
     """Select a workbook medoid using only input/candidates and public metadata."""
     sample_id = str(item["id"])
@@ -383,6 +418,7 @@ def aggregate_spreadsheet_sample(
         selection_fn=selection_fn,
         selection_kwargs=selection_kwargs,
         aggregation_name=aggregation_name,
+        exclude_unchanged_target_values=exclude_unchanged_target_values,
     )
 
 

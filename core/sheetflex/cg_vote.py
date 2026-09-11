@@ -861,6 +861,7 @@ def aggregate_spreadsheet_cg_sample(
     missing_logprob_policy: str = "vote",
     format_order: Sequence[str] = RECOMMEND_FORMAT_ORDER,
     tie_break_order: str = "recommend",
+    exclude_unchanged_target_values: bool = False,
 ) -> Dict[str, Any]:
     alpha = validate_lp_weight_strength(strength)
     beta = validate_confidence_gate_strength(confidence_gate_strength)
@@ -880,6 +881,7 @@ def aggregate_spreadsheet_cg_sample(
             "sample_id": str(item["id"]),
         },
         aggregation_name="confidence_gated_region_class_vote",
+        exclude_unchanged_target_values=exclude_unchanged_target_values,
     )
     aggregate["method"] = METHOD
     aggregate["selected_class_id"] = aggregate["trace"]["selected_class_id"]

@@ -67,6 +67,7 @@ def prepare_output_dir(
     manifest,
     resume=False,
     tie_break_logprob=DEFAULT_TIE_BREAK_LOGPROB,
+    exclude_unchanged_target_values=None,
 ):
     output_dir = Path(output_dir).resolve()
     manifest_copy = output_dir / "manifest.json"
@@ -74,6 +75,10 @@ def prepare_output_dir(
     output_manifest["aggregation_config"] = {
         "tie_break_logprob": tie_break_logprob,
     }
+    if exclude_unchanged_target_values is not None:
+        output_manifest["aggregation_config"][
+            "exclude_unchanged_target_values"
+        ] = exclude_unchanged_target_values
     if output_dir.exists() and any(output_dir.iterdir()):
         if not resume:
             raise SheetFlexError(
@@ -96,6 +101,15 @@ def prepare_output_dir(
                 "Cannot resume: output tie-break logprob statistic does not "
                 "match requested strategy"
             )
+        if exclude_unchanged_target_values is not None:
+            existing_noop_gate = existing.get("aggregation_config", {}).get(
+                "exclude_unchanged_target_values", False
+            )
+            if existing_noop_gate != exclude_unchanged_target_values:
+                raise SelfConsistencyError(
+                    "Cannot resume: output unchanged-target filtering does not "
+                    "match requested strategy"
+                )
     else:
         output_dir.mkdir(parents=True, exist_ok=True)
     save_json(output_manifest, manifest_copy)
@@ -193,7 +207,11 @@ def run_spreadsheet(args):
         manifest, "spreadsheet_pot.jsonl"
     )
     output_dir = prepare_output_dir(
-        args.output_dir, manifest, args.resume, args.tie_break_logprob
+        args.output_dir,
+        manifest,
+        args.resume,
+        args.tie_break_logprob,
+        args.exclude_unchanged_target_values,
     )
 
     dataset_root = Path(args.dataset_root).resolve()
@@ -218,6 +236,9 @@ def run_spreadsheet(args):
                 manifest,
                 spreadsheet_input_path(dataset_root, item),
                 logprob_field=logprob_field,
+                exclude_unchanged_target_values=(
+                    args.exclude_unchanged_target_values
+                ),
             )
         )
 
@@ -257,6 +278,9 @@ def run_spreadsheet(args):
             "base_seed": manifest["base_seed"],
             "manifest": manifest["manifest_path"],
             "tie_break_logprob": args.tie_break_logprob,
+            "exclude_unchanged_target_values": (
+                args.exclude_unchanged_target_values
+            ),
             "copied_output_workbooks": copied,
         }
     )
@@ -311,6 +335,14 @@ def parse_args():
         default=str(
             REPO_DIR
             / "dataset/spreadsheetbench/spreadsheetbench_verified_400"
+        ),
+    )
+    spreadsheet.add_argument(
+        "--exclude_unchanged_target_values",
+        action="store_true",
+        help=(
+            "Exclude candidates whose target-region values are unchanged from "
+            "the input under SpreadsheetBench comparison semantics."
         ),
     )
     spreadsheet.set_defaults(func=run_spreadsheet)

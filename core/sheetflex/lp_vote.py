@@ -584,6 +584,7 @@ def aggregate_spreadsheet_lp_sample(
     missing_logprob_policy: str = "vote",
     format_order: Sequence[str] = RECOMMEND_FORMAT_ORDER,
     tie_break_order: str = "recommend",
+    exclude_unchanged_target_values: bool = False,
 ) -> Dict[str, Any]:
     aggregate = aggregate_spreadsheet_sample(
         item,
@@ -599,6 +600,7 @@ def aggregate_spreadsheet_lp_sample(
             "tie_break_order": tie_break_order,
         },
         aggregation_name="lp_weighted_region_medoid",
+        exclude_unchanged_target_values=exclude_unchanged_target_values,
     )
     trace = aggregate["trace"]
     aggregate["method"] = "SheetFlex-LPVote"

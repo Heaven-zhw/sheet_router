@@ -152,6 +152,9 @@ def run_spreadsheet(args):
                 spreadsheet_input_path(dataset_root, item),
                 format_order=format_order,
                 logprob_field=logprob_field,
+                exclude_unchanged_target_values=(
+                    args.exclude_unchanged_target_values
+                ),
             )
         )
 
@@ -166,6 +169,9 @@ def run_spreadsheet(args):
             "method": "SheetFlex-vote",
             "tie_break_order": args.tie_break_order,
             "tie_break_logprob": args.tie_break_logprob,
+            "exclude_unchanged_target_values": (
+                args.exclude_unchanged_target_values
+            ),
             "run_map": _resolved_run_map_trace(run_map),
             "copied_output_workbooks": copied,
         }
@@ -226,6 +232,14 @@ def parse_args():
         default=str(
             REPO_DIR
             / "dataset/spreadsheetbench/spreadsheetbench_verified_400"
+        ),
+    )
+    spreadsheet.add_argument(
+        "--exclude_unchanged_target_values",
+        action="store_true",
+        help=(
+            "Exclude candidates whose target-region values are unchanged from "
+            "the input under SpreadsheetBench comparison semantics."
         ),
     )
     spreadsheet.set_defaults(func=run_spreadsheet)

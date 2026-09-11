@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+# 加上 --exclude_unchanged_target_values参数；修改CGVOTE_ROOT；注释RealHiTBench的相关代码
 cd /mnt/data/zhw/sheet_router
 
 REPO_DIR="$(pwd)"
@@ -10,7 +10,7 @@ MISSING_LOGPROB_POLICY="${MISSING_LOGPROB_POLICY:-error}"
 TIE_BREAK_ORDER="${TIE_BREAK_ORDER:-recommend}"
 ALPHA_TAG="${LP_WEIGHT_STRENGTH//./p}"
 BETA_TAG="${CONFIDENCE_GATE_STRENGTH//./p}"
-CGVOTE_ROOT="${CGVOTE_ROOT:-$REPO_DIR/lp_outs/sheetflex_cg_vote/alpha_${ALPHA_TAG}_beta_${BETA_TAG}}"
+CGVOTE_ROOT="${CGVOTE_ROOT:-$REPO_DIR/lp_outs/sheetflex_cg_vote_noop/alpha_${ALPHA_TAG}_beta_${BETA_TAG}}"
 
 mkdir -p "$RUN_MAP_ROOT" "$CGVOTE_ROOT"
 
@@ -30,16 +30,16 @@ for MODEL in "${MODELS[@]}"; do
   REALHIT_MAP="$RUN_MAP_ROOT/${MODEL}_realhit.json"
   SPREADSHEET_MAP="$RUN_MAP_ROOT/${MODEL}_spreadsheet.json"
 
-  cat > "$REALHIT_MAP" <<EOF
-{
-  "latex": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_latex_logprobs_100ktoken",
-  "markdown": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_markdown_logprobs_100ktoken",
-  "json_cells": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_json_cells_logprobs_100ktoken",
-  "json_rows": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_json_rows_logprobs_100ktoken",
-  "image": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_image_logprobs_100ktoken",
-  "excel_1_image": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_excel_1_image_logprobs_100ktoken"
-}
-EOF
+#   cat > "$REALHIT_MAP" <<EOF
+# {
+#   "latex": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_latex_logprobs_100ktoken",
+#   "markdown": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_markdown_logprobs_100ktoken",
+#   "json_cells": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_json_cells_logprobs_100ktoken",
+#   "json_rows": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_json_rows_logprobs_100ktoken",
+#   "image": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_image_logprobs_100ktoken",
+#   "excel_1_image": "$REPO_DIR/lp_outs/realhitbench/$MODEL/cot_excel_1_image_logprobs_100ktoken"
+# }
+# EOF
 
   cat > "$SPREADSHEET_MAP" <<EOF
 {
@@ -52,14 +52,14 @@ EOF
 }
 EOF
 
-  echo "[RealHiTBench] SheetFlex-CGVote: $MODEL"
-  python sheetflex_cg_vote.py realhit \
-    --run_map "$REALHIT_MAP" \
-    --output_dir "$CGVOTE_ROOT/$MODEL/realhit" \
-    --lp_weight_strength "$LP_WEIGHT_STRENGTH" \
-    --confidence_gate_strength "$CONFIDENCE_GATE_STRENGTH" \
-    --missing_logprob_policy "$MISSING_LOGPROB_POLICY" \
-    --tie_break_order "$TIE_BREAK_ORDER"
+  # echo "[RealHiTBench] SheetFlex-CGVote: $MODEL"
+  # python sheetflex_cg_vote.py realhit \
+  #   --run_map "$REALHIT_MAP" \
+  #   --output_dir "$CGVOTE_ROOT/$MODEL/realhit" \
+  #   --lp_weight_strength "$LP_WEIGHT_STRENGTH" \
+  #   --confidence_gate_strength "$CONFIDENCE_GATE_STRENGTH" \
+  #   --missing_logprob_policy "$MISSING_LOGPROB_POLICY" \
+  #   --tie_break_order "$TIE_BREAK_ORDER"
 
   echo "[SpreadsheetBench verified_400] SheetFlex-CGVote: $MODEL"
   python sheetflex_cg_vote.py spreadsheet \
@@ -68,5 +68,6 @@ EOF
     --lp_weight_strength "$LP_WEIGHT_STRENGTH" \
     --confidence_gate_strength "$CONFIDENCE_GATE_STRENGTH" \
     --missing_logprob_policy "$MISSING_LOGPROB_POLICY" \
-    --tie_break_order "$TIE_BREAK_ORDER"
+    --tie_break_order "$TIE_BREAK_ORDER" \
+    --exclude_unchanged_target_values
 done

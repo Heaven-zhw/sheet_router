@@ -19,9 +19,11 @@ from core.sheetflex.common import (
 from core.sheetflex.realhit import aggregate_answer_vote, aggregate_realhit_sample
 from core.sheetflex.self_consistency import (
     aggregate_self_consistency_realhit_sample,
+    aggregate_self_consistency_spreadsheet_sample,
 )
 from core.sheetflex.spreadsheet import (
     aggregate_spreadsheet_sample,
+    count_changed_region_cells,
     copy_selected_workbooks,
     select_spreadsheet_medoid,
 )
@@ -100,6 +102,24 @@ class RealHiTVoteTest(unittest.TestCase):
             use_sum = self_consistency_cli.parse_args()
         self.assertEqual(use_mean.tie_break_logprob, "mean")
         self.assertEqual(use_sum.tie_break_logprob, "sum")
+
+    def test_spreadsheet_cli_unchanged_filter_defaults_off(self):
+        argv = [
+            "sheetflex_vote.py",
+            "spreadsheet",
+            "--run_map",
+            "m",
+            "--output_dir",
+            "o",
+        ]
+        with patch("sys.argv", argv):
+            default_args = sheetflex_vote_cli.parse_args()
+        with patch(
+            "sys.argv", argv + ["--exclude_unchanged_target_values"]
+        ):
+            filtered_args = sheetflex_vote_cli.parse_args()
+        self.assertFalse(default_args.exclude_unchanged_target_values)
+        self.assertTrue(filtered_args.exclude_unchanged_target_values)
 
     def test_self_consistency_tie_break_can_use_mean(self):
         manifest = {
@@ -463,6 +483,17 @@ class SpreadsheetVoteTest(unittest.TestCase):
             for format_name in FORMAT_ORDER
         }
 
+    def test_changed_cell_count_uses_benchmark_value_semantics(self):
+        input_cells = OrderedDict(
+            [(('Target', 'A1'), None), (('Target', 'B1'), "1")]
+        )
+        candidate_cells = OrderedDict(
+            [(('Target', 'A1'), ""), (('Target', 'B1'), 1)]
+        )
+        self.assertEqual(
+            count_changed_region_cells(input_cells, candidate_cells), 0
+        )
+
     def test_xlsx_similarity_matrix_and_unique_medoid(self):
         records = self.empty_records()
         records["latex"] = self.record("latex", {"A1": 0, "B1": 0})
@@ -479,6 +510,108 @@ class SpreadsheetVoteTest(unittest.TestCase):
         self.assertEqual(matrix["latex"]["json_cells"], 0.0)
         self.assertEqual(matrix["markdown"]["json_cells"], 0.5)
         self.assertFalse(result["trace"]["tie"])
+
+    def test_unchanged_target_filter_is_optional_and_precedes_voting(self):
+        records = self.empty_records()
+        records["latex"] = self.record("latex", {"A1": 0, "B1": 0})
+        records["markdown"] = self.record(
+            "markdown", {"A1": 0, "B1": 1}
+        )
+
+        legacy = aggregate_spreadsheet_sample(
+            self.item, records, self.run_dirs, self.input_path
+        )
+        filtered = aggregate_spreadsheet_sample(
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            exclude_unchanged_target_values=True,
+        )
+
+        legacy_candidates = {
+            candidate["format"]: candidate
+            for candidate in legacy["trace"]["candidates"]
+        }
+        filtered_candidates = {
+            candidate["format"]: candidate
+            for candidate in filtered["trace"]["candidates"]
+        }
+        self.assertTrue(legacy_candidates["latex"]["valid"])
+        self.assertTrue(legacy_candidates["latex"]["target_value_unchanged"])
+        self.assertEqual(legacy_candidates["latex"]["target_changed_cell_count"], 0)
+        self.assertFalse(filtered_candidates["latex"]["valid"])
+        self.assertTrue(
+            filtered_candidates["latex"]["excluded_by_unchanged_target_values"]
+        )
+        self.assertEqual(
+            filtered_candidates["latex"]["invalid_reason"],
+            "target_region_values_unchanged_from_input",
+        )
+        self.assertEqual(filtered["selected_format"], "markdown")
+        self.assertEqual(filtered["valid_candidate_count"], 1)
+
+    def test_unchanged_filter_reuses_benchmark_value_semantics(self):
+        records = self.empty_records()
+        records["latex"] = self.record(
+            "latex", {"A1": "0", "B1": "0.00"}
+        )
+        result = aggregate_spreadsheet_sample(
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            exclude_unchanged_target_values=True,
+        )
+        candidate = next(
+            item
+            for item in result["trace"]["candidates"]
+            if item["format"] == "latex"
+        )
+        self.assertFalse(candidate["valid"])
+        self.assertTrue(candidate["target_value_unchanged"])
+        self.assertFalse(result["format_valid"])
+
+    def test_self_consistency_forwards_unchanged_target_filter(self):
+        manifest = {
+            "table_format": "latex",
+            "num_samples": 6,
+            "base_seed": 42,
+            "runs": [],
+        }
+        records = {}
+        for index, format_name in enumerate(FORMAT_ORDER):
+            candidate_id = f"sample_{index}"
+            manifest["runs"].append(
+                {
+                    "candidate_id": candidate_id,
+                    "sample_index": index,
+                    "seed": 42 + index,
+                    "run_dir": str(self.run_dirs[format_name]),
+                }
+            )
+            records[candidate_id] = self.record(format_name, success=False)
+        records["sample_0"] = self.record(
+            FORMAT_ORDER[0], {"A1": 0, "B1": 0}
+        )
+        records["sample_1"] = self.record(
+            FORMAT_ORDER[1], {"A1": 0, "B1": 1}
+        )
+
+        result = aggregate_self_consistency_spreadsheet_sample(
+            self.item,
+            records,
+            manifest,
+            self.input_path,
+            exclude_unchanged_target_values=True,
+        )
+        candidates = {
+            candidate["candidate_id"]: candidate
+            for candidate in result["trace"]["candidates"]
+        }
+        self.assertFalse(candidates["sample_0"]["valid"])
+        self.assertEqual(result["selected_candidate_id"], "sample_1")
+        self.assertEqual(result["selected_sample_index"], 1)
 
     def test_medoid_tie_uses_logprob(self):
         records = self.empty_records()

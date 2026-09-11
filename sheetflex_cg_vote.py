@@ -250,6 +250,10 @@ def _prepare_run(args, dataset_path):
             "fixed_vote": {"tie_break_order": "recommend"},
         },
     }
+    if hasattr(args, "exclude_unchanged_target_values"):
+        manifest["exclude_unchanged_target_values"] = (
+            args.exclude_unchanged_target_values
+        )
     save_json(manifest, output_dir / "manifest.json")
     return run_map, output_dir, format_order, manifest
 
@@ -358,6 +362,9 @@ def run_spreadsheet(args):
                 missing_logprob_policy=args.missing_logprob_policy,
                 format_order=format_order,
                 tie_break_order=args.tie_break_order,
+                exclude_unchanged_target_values=(
+                    args.exclude_unchanged_target_values
+                ),
             )
         )
 
@@ -384,6 +391,9 @@ def run_spreadsheet(args):
                 "tie_break_order",
                 "run_map",
             )},
+            "exclude_unchanged_target_values": (
+                args.exclude_unchanged_target_values
+            ),
             "copied_output_workbooks": copied,
         }
     )
@@ -436,6 +446,14 @@ def parse_args(argv=None):
         default=str(
             REPO_DIR
             / "dataset/spreadsheetbench/spreadsheetbench_verified_400"
+        ),
+    )
+    spreadsheet.add_argument(
+        "--exclude_unchanged_target_values",
+        action="store_true",
+        help=(
+            "Exclude candidates whose target-region values are unchanged from "
+            "the input under SpreadsheetBench comparison semantics."
         ),
     )
     spreadsheet.set_defaults(func=run_spreadsheet)
