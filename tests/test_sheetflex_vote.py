@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from collections import OrderedDict
+from copy import copy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -571,6 +572,65 @@ class SpreadsheetVoteTest(unittest.TestCase):
         self.assertFalse(candidate["valid"])
         self.assertTrue(candidate["target_value_unchanged"])
         self.assertFalse(result["format_valid"])
+
+    def test_missing_input_target_sheet_counts_as_structural_change(self):
+        item = dict(self.item)
+        item.update(
+            {"answer_position": "'NewSheet'!A1:B2", "answer_sheet": "NewSheet"}
+        )
+        records = self.empty_records()
+        records["latex"] = self.record("latex", values=None)
+        output_path = (
+            self.run_dirs["latex"] / "spreadsheet" / "1_sample_output.xlsx"
+        )
+        save_book(output_path, {"A1": "created", "B2": 1}, "NewSheet")
+
+        result = aggregate_spreadsheet_sample(
+            item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            exclude_unchanged_target_values=True,
+        )
+        candidate = next(
+            value
+            for value in result["trace"]["candidates"]
+            if value["format"] == "latex"
+        )
+        self.assertTrue(candidate["valid"])
+        self.assertTrue(candidate["target_structure_changed"])
+        self.assertFalse(candidate["target_value_unchanged"])
+        self.assertEqual(result["selected_format"], "latex")
+
+    def test_format_change_counts_as_effective_change(self):
+        records = self.empty_records()
+        records["latex"] = self.record("latex", {"A1": 0, "B1": 0})
+        output_path = (
+            self.run_dirs["latex"] / "spreadsheet" / "1_sample_output.xlsx"
+        )
+        workbook = openpyxl.load_workbook(output_path)
+        font = copy(workbook["Target"]["A1"].font)
+        font.bold = True
+        workbook["Target"]["A1"].font = font
+        workbook.save(output_path)
+        workbook.close()
+
+        result = aggregate_spreadsheet_sample(
+            self.item,
+            records,
+            self.run_dirs,
+            self.input_path,
+            exclude_unchanged_target_values=True,
+        )
+        candidate = next(
+            value
+            for value in result["trace"]["candidates"]
+            if value["format"] == "latex"
+        )
+        self.assertTrue(candidate["valid"])
+        self.assertEqual(candidate["target_changed_cell_count"], 0)
+        self.assertGreater(candidate["target_style_changed_cell_count"], 0)
+        self.assertFalse(candidate["target_value_unchanged"])
 
     def test_self_consistency_forwards_unchanged_target_filter(self):
         manifest = {

@@ -16,6 +16,8 @@ from ..eval.spreadsheet_regions import (
     SpreadsheetRegionError,
     compare_cell_value,
     extract_normalized_region_cells,
+    iter_unique_region_coordinates,
+    parse_answer_regions,
 )
 from .common import (
     FORMAT_ORDER,
@@ -110,6 +112,123 @@ def count_changed_region_cells(
     return sum(
         not compare_cell_value(input_cells[key], candidate_cells[key])
         for key in input_cells
+    )
+
+
+def _style_color_signature(color):
+    if color is None:
+        return None
+    return (
+        color.type,
+        color.rgb,
+        color.indexed,
+        color.auto,
+        color.theme,
+        color.tint,
+    )
+
+
+def _cell_style_signature(cell):
+    """Return workbook-independent style properties for No-op detection."""
+    font = cell.font
+    fill = cell.fill
+    border = cell.border
+    alignment = cell.alignment
+    protection = cell.protection
+    return (
+        (
+            font.name,
+            font.sz,
+            font.b,
+            font.i,
+            font.u,
+            font.strike,
+            font.outline,
+            font.shadow,
+            font.condense,
+            font.extend,
+            font.vertAlign,
+            font.charset,
+            font.family,
+            font.scheme,
+            _style_color_signature(font.color),
+        ),
+        (
+            fill.fill_type,
+            fill.patternType,
+            _style_color_signature(fill.fgColor),
+            _style_color_signature(fill.bgColor),
+        ),
+        tuple(
+            (
+                getattr(side, "style", None),
+                _style_color_signature(getattr(side, "color", None)),
+            )
+            for side in (
+                border.left,
+                border.right,
+                border.top,
+                border.bottom,
+                border.diagonal,
+                border.vertical,
+                border.horizontal,
+            )
+        ),
+        (
+            alignment.horizontal,
+            alignment.vertical,
+            alignment.textRotation,
+            alignment.wrap_text,
+            alignment.shrink_to_fit,
+            alignment.indent,
+            alignment.relativeIndent,
+            alignment.justifyLastLine,
+            alignment.readingOrder,
+        ),
+        (protection.locked, protection.hidden),
+        cell.number_format,
+    )
+
+
+def extract_normalized_region_styles(
+    workbook_or_path,
+    answer_position: str,
+    answer_sheet: str = "",
+    *,
+    max_rows=None,
+    max_columns=None,
+) -> "OrderedDict[tuple[str, str], tuple]":
+    """Extract style signatures for target cells without relying on style IDs."""
+    workbook = workbook_or_path
+    should_close = False
+    if isinstance(workbook_or_path, (str, os.PathLike)):
+        workbook = openpyxl.load_workbook(workbook_or_path, data_only=False)
+        should_close = True
+    try:
+        cells = {}
+        regions = parse_answer_regions(
+            workbook,
+            answer_position,
+            answer_sheet,
+            max_rows=max_rows,
+            max_columns=max_columns,
+        )
+        for sheet_name, coordinate in iter_unique_region_coordinates(regions):
+            cells[(sheet_name, coordinate)] = _cell_style_signature(
+                workbook[sheet_name][coordinate]
+            )
+        return cells
+    finally:
+        if should_close:
+            workbook.close()
+
+
+def _is_missing_target_region_error(error: str | None) -> bool:
+    """Treat a missing input target as an expected create-region case."""
+    return bool(
+        error
+        and error.startswith("failed_to_extract_input_regions:")
+        and "Worksheet not found for region" in error
     )
 
 
@@ -277,6 +396,8 @@ def aggregate_spreadsheet_candidates(
             )
         except Exception as exc:
             input_error = f"failed_to_extract_input_regions: {exc}"
+    input_region_missing = _is_missing_target_region_error(input_error)
+    input_styles = None
 
     candidates = []
     for spec in candidate_specs:
@@ -289,6 +410,8 @@ def aggregate_spreadsheet_candidates(
         changed_cell_count = None
         target_change_ratio = None
         target_value_unchanged = None
+        target_style_changed_cell_count = None
+        target_structure_changed = False
         excluded_by_unchanged_target_values = False
         if record is None:
             valid = False
@@ -299,7 +422,7 @@ def aggregate_spreadsheet_candidates(
         elif candidate_id in open_errors:
             valid = False
             invalid_reason = open_errors[candidate_id]
-        elif input_error is not None:
+        elif input_error is not None and not input_region_missing:
             valid = False
             invalid_reason = input_error
         else:
@@ -311,13 +434,42 @@ def aggregate_spreadsheet_candidates(
                     max_rows=max_rows,
                     max_columns=max_columns,
                 )
-                if list(cells) != list(input_cells):
+                if input_region_missing:
+                    # A newly created target has no input baseline. Its
+                    # existence is itself an effective change.
+                    target_structure_changed = True
+                    target_value_unchanged = False
+                elif list(cells) != list(input_cells):
                     raise SpreadsheetRegionError(
                         "Candidate region coordinates differ from input coordinates"
                     )
-                changed_cell_count = count_changed_region_cells(input_cells, cells)
-                target_change_ratio = changed_cell_count / len(cells)
-                target_value_unchanged = changed_cell_count == 0
+                else:
+                    changed_cell_count = count_changed_region_cells(input_cells, cells)
+                    target_change_ratio = changed_cell_count / len(cells)
+                    if exclude_unchanged_target_values and changed_cell_count == 0:
+                        if input_styles is None:
+                            input_styles = extract_normalized_region_styles(
+                                input_path,
+                                item.get("answer_position"),
+                                item.get("answer_sheet", ""),
+                                max_rows=max_rows,
+                                max_columns=max_columns,
+                            )
+                        candidate_styles = extract_normalized_region_styles(
+                            output_path,
+                            item.get("answer_position"),
+                            item.get("answer_sheet", ""),
+                            max_rows=max_rows,
+                            max_columns=max_columns,
+                        )
+                        target_style_changed_cell_count = sum(
+                            input_styles[key] != candidate_styles[key]
+                            for key in input_styles
+                        )
+                    target_value_unchanged = (
+                        changed_cell_count == 0
+                        and (target_style_changed_cell_count or 0) == 0
+                    )
                 if exclude_unchanged_target_values and target_value_unchanged:
                     valid = False
                     excluded_by_unchanged_target_values = True
@@ -336,6 +488,8 @@ def aggregate_spreadsheet_candidates(
             "target_changed_cell_count": changed_cell_count,
             "target_change_ratio": target_change_ratio,
             "target_value_unchanged": target_value_unchanged,
+            "target_style_changed_cell_count": target_style_changed_cell_count,
+            "target_structure_changed": target_structure_changed,
             "excluded_by_unchanged_target_values": (
                 excluded_by_unchanged_target_values
             ),
@@ -374,6 +528,7 @@ def aggregate_spreadsheet_candidates(
             "max_rows_by_sheet": max_rows,
             "max_columns_by_sheet": max_columns,
             "input_region_error": input_error,
+            "input_region_missing": input_region_missing,
             "exclude_unchanged_target_values": exclude_unchanged_target_values,
             **selection,
         },

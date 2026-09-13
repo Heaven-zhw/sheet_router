@@ -13,10 +13,10 @@ LPVOTE_ROOT="${LPVOTE_ROOT:-$REPO_DIR/lp_outs/sheetflex_lp_vote_noop/alpha_${STR
 mkdir -p "$RUN_MAP_ROOT" "$LPVOTE_ROOT"
 
 MODELS=(
-  # "gemma-3-12b-it"
-  # "gemma-4-12B-it"
+  "gemma-3-12b-it"
+  "gemma-4-12B-it"
   # "gemma-4-26B-A4B-it"
-  # "Qwen3.5-9B"
+  "Qwen3.5-9B"
   "Qwen3-VL-30B-A3B-Instruct"
 )
 

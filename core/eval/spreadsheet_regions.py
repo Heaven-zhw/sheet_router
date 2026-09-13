@@ -83,6 +83,11 @@ _CELL_RANGE_RE = re.compile(
     r"^\$?([A-Za-z]+)(?:\$?(\d+))?"
     r"(?:\s*:\s*\$?([A-Za-z]+)(?:\$?(\d+))?)?$"
 )
+# Excel also accepts a same-column range with only the ending row, e.g.
+# ``BD2:308``.  The benchmark contains this form in answer_position.
+_SAME_COLUMN_ROW_RANGE_RE = re.compile(
+    r"^\$?([A-Za-z]+)\$?(\d+)\s*:\s*\$?(\d+)$"
+)
 _ROW_RANGE_RE = re.compile(r"^\$?(\d+)\s*:\s*\$?(\d+)$")
 
 
@@ -102,7 +107,9 @@ def _looks_like_range(source: str) -> bool:
     range_text = source.rsplit("!", 1)[-1]
     range_text = _normalize_range_text(range_text)
     return bool(
-        _CELL_RANGE_RE.fullmatch(range_text) or _ROW_RANGE_RE.fullmatch(range_text)
+        _CELL_RANGE_RE.fullmatch(range_text)
+        or _SAME_COLUMN_ROW_RANGE_RE.fullmatch(range_text)
+        or _ROW_RANGE_RE.fullmatch(range_text)
     )
 
 
@@ -183,6 +190,24 @@ def _parse_range(
         if min_row < 1 or end_row > _MAX_EXCEL_ROW or min_row > end_row:
             raise SpreadsheetRegionError(f"Invalid row range: {source!r}")
         return CellRegion(sheet_name, min_row, 1, end_row, max_column, source)
+
+    same_column_match = _SAME_COLUMN_ROW_RANGE_RE.fullmatch(range_text)
+    if same_column_match:
+        column_text, start_row_text, end_row_text = same_column_match.groups()
+        try:
+            column = column_index_from_string(column_text.upper())
+        except ValueError as exc:
+            raise SpreadsheetRegionError(f"Invalid column in range: {source!r}") from exc
+        start_row = int(start_row_text)
+        end_row = int(end_row_text)
+        if (
+            column > _MAX_EXCEL_COLUMN
+            or start_row < 1
+            or end_row > _MAX_EXCEL_ROW
+            or start_row > end_row
+        ):
+            raise SpreadsheetRegionError(f"Invalid cell range: {source!r}")
+        return CellRegion(sheet_name, start_row, column, end_row, column, source)
 
     match = _CELL_RANGE_RE.fullmatch(range_text)
     if not match:

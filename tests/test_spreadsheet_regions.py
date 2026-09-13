@@ -164,6 +164,16 @@ class SpreadsheetRegionTest(unittest.TestCase):
         self.assertEqual(len(row_cells), 6)
         self.assertEqual(next(reversed(row_cells)), ("Target", "C2"))
 
+    def test_same_column_range_with_end_row_only(self):
+        path = self.root / "same_column.xlsx"
+        save_workbook(path, {"Target": {"BD2": 1, "BD308": 2}})
+        cells = extract_normalized_region_cells(
+            path, "'Target'!BD2:308", max_rows={"Target": 308}
+        )
+        self.assertEqual(len(cells), 307)
+        self.assertEqual(next(iter(cells)), ("Target", "BD2"))
+        self.assertEqual(next(reversed(cells)), ("Target", "BD308"))
+
     def test_whole_columns_compare_generated_extra_rows(self):
         gold, generated = self.paths(
             {"Target": {"A1": "same", "G2": "same"}},
