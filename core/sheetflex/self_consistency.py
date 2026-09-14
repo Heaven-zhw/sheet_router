@@ -460,6 +460,7 @@ def _realhit_vote_events(row: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 
 def self_consistency_realhit_diagnostics(
     rows: Sequence[Mapping[str, Any]],
+    num_candidates: int = NUM_SELF_CONSISTENCY_SAMPLES,
 ) -> Dict[str, Any]:
     vote_events = [event for row in rows for event in _realhit_vote_events(row)]
     answer_group_ties = [event for event in vote_events if event["tie"]]
@@ -480,7 +481,7 @@ def self_consistency_realhit_diagnostics(
     identical_events = [
         event
         for event in vote_events
-        if event["valid_candidate_count"] == NUM_SELF_CONSISTENCY_SAMPLES
+        if event["valid_candidate_count"] == num_candidates
         and len(event["answer_groups"]) == 1
     ]
     invalid_reasons = [
@@ -530,6 +531,7 @@ def self_consistency_realhit_diagnostics(
 
 def self_consistency_spreadsheet_diagnostics(
     rows: Sequence[Mapping[str, Any]],
+    num_candidates: int = NUM_SELF_CONSISTENCY_SAMPLES,
 ) -> Dict[str, Any]:
     ties = [row for row in rows if row["trace"]["tie"]]
     selected_indices = [
@@ -559,6 +561,7 @@ def self_consistency_spreadsheet_diagnostics(
     tie_sources = [row["trace"]["tie_break_source"] for row in ties]
     return {
         "num_samples": len(rows),
+        "num_candidates": num_candidates,
         "valid_candidate_count_distribution": count_distribution(
             row["valid_candidate_count"] for row in rows
         ),

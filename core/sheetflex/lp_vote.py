@@ -315,6 +315,7 @@ def _realhit_branch_candidates(
     records_by_format: Mapping[str, Mapping[str, Any] | None],
     run_dirs: Mapping[str, str],
     structure_key: str | None = None,
+    format_order: Sequence[str] = FORMAT_ORDER,
 ) -> list[dict]:
     return [
         build_realhit_candidate_trace(
@@ -323,7 +324,7 @@ def _realhit_branch_candidates(
             structure_key=structure_key,
             run_dir=run_dirs.get(format_name),
         )
-        for format_name in FORMAT_ORDER
+        for format_name in format_order
     ]
 
 
@@ -344,10 +345,16 @@ def aggregate_realhit_lp_sample(
 
     if question_type == "Structure Comprehending":
         reference_candidates = _realhit_branch_candidates(
-            records_by_format, run_dirs, "structure_reference_run"
+            records_by_format,
+            run_dirs,
+            "structure_reference_run",
+            format_order,
         )
         swap_candidates = _realhit_branch_candidates(
-            records_by_format, run_dirs, "structure_swap_run"
+            records_by_format,
+            run_dirs,
+            "structure_swap_run",
+            format_order,
         )
         reference_probe = compute_lp_weights(
             reference_candidates, strength, missing_logprob_policy
@@ -431,7 +438,9 @@ def aggregate_realhit_lp_sample(
             },
         }
 
-    candidates = _realhit_branch_candidates(records_by_format, run_dirs)
+    candidates = _realhit_branch_candidates(
+        records_by_format, run_dirs, format_order=format_order
+    )
     vote = aggregate_answer_lp_vote(
         candidates,
         strength=strength,

@@ -11,6 +11,7 @@ __pycache__/
 outs/
 sc_outs/
 lp_outs/
+format_ablation_outs/
 tests/
 analysis/
 
