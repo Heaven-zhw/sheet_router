@@ -12,6 +12,9 @@ outs/
 sc_outs/
 lp_outs/
 format_ablation_outs/
+format_ablation_outs_5formats/
+format_ablation_outs_5formats_seed_combinations/
+
 tests/
 analysis/
 

@@ -1,8 +1,9 @@
-"""Offline four-format/two-format-ablation aggregation helpers.
+"""Offline format-ablation aggregation helpers.
 
-This entry point intentionally does not change the six-format baseline CLIs.
-It reads existing candidate runs, restricts Self-Consistency to seeds 42..45,
-and restricts cross-format aggregation to latex/markdown/json_rows/json_cells.
+The default format set remains the existing four-format ablation.  The
+``--format_set five`` option adds ``image`` for RealHiTBench and
+``excel_1_image`` for SpreadsheetBench, while reusing the same aggregators.
+For the five-format comparison, SC covers all six formats independently.
 """
 
 import argparse
@@ -45,19 +46,44 @@ from core.sheetflex.spreadsheet import (
 
 REPO_DIR = Path(__file__).resolve().parent
 ABLATION_FORMATS = ("latex", "markdown", "json_rows", "json_cells")
+FIVE_FORMATS_BY_BENCHMARK = {
+    "realhit": ABLATION_FORMATS + ("image",),
+    "spreadsheet": ABLATION_FORMATS + ("excel_1_image",),
+}
 ABLATION_ORDER = tuple(
     format_name
     for format_name in RECOMMEND_FORMAT_ORDER
     if format_name in ABLATION_FORMATS
 )
-SEEDS = (42, 43, 44, 45)
+DEFAULT_SC_SEEDS = (42, 43, 44, 45)
+SC_FORMATS = ABLATION_FORMATS + ("image", "excel_1_image")
 METHODS = ("vote_mean", "vote_fixed", "lpvote", "cgvote")
+
+
+def _format_set_names(format_set, benchmark):
+    if format_set == "four":
+        return ABLATION_FORMATS
+    return FIVE_FORMATS_BY_BENCHMARK[benchmark]
+
+
+def _sc_format_names(format_set):
+    return ABLATION_FORMATS if format_set == "four" else SC_FORMATS
 
 
 def _parse_ids(value):
     if not value:
         return None
     return {item.strip() for item in value.split(",") if item.strip()}
+
+
+def _parse_seed_list(value):
+    try:
+        seeds = tuple(int(item.strip()) for item in str(value).split(",") if item.strip())
+    except ValueError as exc:
+        raise SheetFlexError(f"Invalid self-consistency seed list: {value!r}") from exc
+    if not seeds or len(set(seeds)) != len(seeds):
+        raise SheetFlexError("Self-consistency seeds must be a non-empty unique list")
+    return seeds
 
 
 def _select_rows(rows, ids=None, limit=0):
@@ -110,7 +136,7 @@ def _load_indexed(path):
     return index_rows_by_id(load_result_rows(path), source=str(path))
 
 
-def _load_single_format_runs(candidate_root, benchmark, model, format_name):
+def _load_single_format_runs(candidate_root, benchmark, model, format_name, seeds):
     manifest_path = (
         Path(candidate_root)
         / "self_consistency_manifests"
@@ -124,7 +150,7 @@ def _load_single_format_runs(candidate_root, benchmark, model, format_name):
     if not isinstance(runs, list):
         raise SheetFlexError(f"Manifest runs must be a list: {manifest_path}")
     selected = []
-    for seed in SEEDS:
+    for seed in seeds:
         matches = [run for run in runs if run.get("seed") == seed]
         if len(matches) != 1:
             raise SheetFlexError(
@@ -156,9 +182,9 @@ def _load_single_format_runs(candidate_root, benchmark, model, format_name):
     return manifest, selected
 
 
-def _load_sc_candidates(candidate_root, benchmark, model, format_name, filename):
+def _load_sc_candidates(candidate_root, benchmark, model, format_name, filename, seeds, *, load_records=True):
     manifest, runs = _load_single_format_runs(
-        candidate_root, benchmark, model, format_name
+        candidate_root, benchmark, model, format_name, seeds
     )
     indexed = {}
     for run in runs:
@@ -167,14 +193,15 @@ def _load_sc_candidates(candidate_root, benchmark, model, format_name, filename)
             raise SheetFlexError(
                 f"Candidate result file missing for {run['candidate_id']}: {result_path}"
             )
-        indexed[run["candidate_id"]] = _load_indexed(result_path)
+        if load_records:
+            indexed[run["candidate_id"]] = _load_indexed(result_path)
     reduced = {
         "method": "self_consistency",
         "stage": "candidate_generation",
         "dataset": manifest.get("dataset"),
         "model_name": model,
         "table_format": format_name,
-        "num_samples": len(SEEDS),
+        "num_samples": len(seeds),
         "base_seed": 42,
         "temperature": manifest.get("temperature"),
         "top_p": manifest.get("top_p"),
@@ -212,21 +239,109 @@ def _base_output_manifest(args, benchmark, model, formats, source_info):
         "model_name": model,
         "formats": list(formats),
         "format_order": list(args.format_order),
-        "seeds": list(SEEDS) if args.method == "self_consistency" else None,
-        "num_candidates": len(SEEDS) if args.method == "self_consistency" else len(formats),
-        "num_samples": len(SEEDS) if args.method == "self_consistency" else len(formats),
+        "seeds": list(args.self_consistency_seeds) if args.method == "self_consistency" else None,
+        "num_candidates": len(args.self_consistency_seeds) if args.method == "self_consistency" else len(formats),
+        "num_samples": len(args.self_consistency_seeds) if args.method == "self_consistency" else len(formats),
         "lp_weight_strength": args.lp_weight_strength,
         "confidence_gate_strength": args.confidence_gate_strength,
         "missing_logprob_policy": args.missing_logprob_policy,
         "tie_break_logprob": args.tie_break_logprob,
         "source": source_info,
+        "dataset_path": str(_load_dataset(benchmark, args.dataset_root)[0].resolve()),
+        "sample_filter": {"ids": sorted(_parse_ids(args.ids) or []), "limit": args.limit},
     }
+
+
+def _output_config_matches(previous, expected):
+    fields = ["method", "benchmark", "model_name", "formats", "num_candidates"]
+    method = expected["method"]
+    if method == "self_consistency":
+        fields += ["seeds", "tie_break_logprob"]
+        identity = lambda m: [(r["seed"], str(Path(r["run_dir"]).resolve())) for r in m.get("source_runs", [])]
+        if identity(previous) != identity(expected):
+            return False
+    else:
+        fields += ["format_order"]
+        if previous.get("source", {}).get("run_dirs") != expected["source"]["run_dirs"]:
+            return False
+        if method == "vote_mean":
+            fields += ["tie_break_logprob"]
+        if method in ("lpvote", "cgvote"):
+            fields += ["lp_weight_strength", "missing_logprob_policy"]
+        if method == "cgvote":
+            fields += ["confidence_gate_strength"]
+    if previous.get("exclude_unchanged_target_values", False):
+        return False
+    if previous.get("dataset_path", expected["dataset_path"]) != expected["dataset_path"]:
+        return False
+    return all(previous.get(field) == expected.get(field) for field in fields)
+
+
+def _completed_output(output_dir, method, benchmark, selected_rows):
+    eval_name = f"{method}_eval.json" if benchmark == "realhit" else "spreadsheet_pot_eval.json"
+    score_name = f"{method}_score.json" if benchmark == "realhit" else "spreadsheet_pot_accuracy.json"
+    filenames = [f"{method}.jsonl", eval_name, score_name, f"{method}_diagnostics.json"]
+    if any(not (output_dir / name).is_file() for name in filenames):
+        return False
+    try:
+        expected_ids = {str(row["id"]) for row in selected_rows}
+        traces = _load_indexed(output_dir / filenames[0])
+        eval_rows = _load_indexed(output_dir / eval_name)
+        if set(traces) != expected_ids or set(eval_rows) != expected_ids:
+            return False
+        score = _load_json(output_dir / score_name)
+        diagnostics = _load_json(output_dir / filenames[3])
+        if not isinstance(score, dict) or not score or diagnostics.get("num_samples") != len(expected_ids):
+            return False
+        if benchmark == "spreadsheet":
+            for sample_id, row in traces.items():
+                if row.get("execution_success") is True and not (output_dir / "spreadsheet" / f"1_{sample_id}_output.xlsx").is_file():
+                    return False
+        return True
+    except (SheetFlexError, ValueError, TypeError, KeyError):
+        return False
+
+
+def _prepare_output(args, output_dir, manifest, selected_rows):
+    """Return False for dry-run or a complete matching task; never skip by directory alone."""
+    nonempty = output_dir.exists() and any(output_dir.iterdir())
+    complete = False
+    if nonempty:
+        if not (args.resume or args.skip_completed or args.dry_run):
+            raise SheetFlexError(f"Refusing to overwrite non-empty output directory: {output_dir}")
+        previous = _load_json(output_dir / "manifest.json")
+        if not _output_config_matches(previous, manifest):
+            raise SheetFlexError(f"Output configuration mismatch; use a different output root: {output_dir}")
+        if "sample_filter" in previous and previous["sample_filter"] != manifest["sample_filter"]:
+            raise SheetFlexError(f"Output sample-filter mismatch; use a different output root: {output_dir}")
+        # Old manifests did not save ids/limit: never replace a different completed scope.
+        existing_eval = output_dir / (f"{args.method}_eval.json" if args.benchmark == "realhit" else "spreadsheet_pot_eval.json")
+        if "sample_filter" not in previous and existing_eval.exists():
+            if set(_load_indexed(existing_eval)) != {str(row["id"]) for row in selected_rows}:
+                raise SheetFlexError(f"Output sample-ID mismatch; use a different output root: {output_dir}")
+        complete = _completed_output(output_dir, args.method, args.benchmark, selected_rows)
+    action = "skip" if args.skip_completed and complete else "resume" if nonempty else "run"
+    if args.dry_run:
+        print(json.dumps({"action": action, "method": args.method, "benchmark": args.benchmark,
+                          "model": args.model, "formats": manifest["formats"], "seeds": manifest["seeds"],
+                          "num_samples": len(selected_rows), "output_dir": str(output_dir)}, ensure_ascii=False))
+        return False
+    if action == "skip":
+        print(f"[skip completed] {output_dir}")
+        return False
+    if nonempty and not args.resume:
+        raise SheetFlexError(f"Incomplete/existing output; pass --resume to recompute: {output_dir}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    save_json(manifest, output_dir / "manifest.json")
+    return True
 
 
 def run_self_consistency(args, benchmark, model, format_name):
     filename = "realhit_cot.jsonl" if benchmark == "realhit" else "spreadsheet_pot.jsonl"
-    manifest, indexed = _load_sc_candidates(
-        args.candidate_root, benchmark, model, format_name, filename
+    manifest, _ = _load_sc_candidates(
+        args.candidate_root, benchmark, model, format_name, filename,
+        args.self_consistency_seeds,
+        load_records=False,
     )
     dataset_path, dataset_rows = _load_dataset(benchmark, args.dataset_root)
     selected_rows = _select_rows(dataset_rows, args.ids, args.limit)
@@ -241,10 +356,6 @@ def run_self_consistency(args, benchmark, model, format_name):
         / model
         / format_name
     ).resolve()
-    if output_dir.exists() and any(output_dir.iterdir()):
-        if not args.resume:
-            raise SheetFlexError(f"Refusing to overwrite non-empty output directory: {output_dir}")
-    output_dir.mkdir(parents=True, exist_ok=True)
     output_manifest = _base_output_manifest(
         args,
         benchmark,
@@ -253,9 +364,9 @@ def run_self_consistency(args, benchmark, model, format_name):
         {"candidate_root": str(Path(args.candidate_root).resolve()), "source_manifest": manifest.get("source_manifest")},
     )
     output_manifest.update({"source_manifest": manifest.get("source_manifest"), "source_runs": manifest["runs"]})
-    save_json(output_manifest, output_dir / "manifest.json")
-
-    reduced_records = {}
+    if not _prepare_output(args, output_dir, output_manifest, selected_rows):
+        return
+    indexed = {run["candidate_id"]: _load_indexed(Path(run["run_dir"]) / filename) for run in manifest["runs"]}
     aggregates = []
     reduced_manifest = dict(manifest)
     for item in selected_rows:
@@ -303,7 +414,7 @@ def run_self_consistency(args, benchmark, model, format_name):
             aggregates, dataset_by_id, selected_id_field="selected_candidate_id"
         )
         diagnostics = self_consistency_realhit_diagnostics(
-            aggregates, num_candidates=len(SEEDS)
+            aggregates, num_candidates=len(args.self_consistency_seeds)
         )
         save_json(eval_rows, output_dir / "self_consistency_eval.json")
         save_json(score, output_dir / "self_consistency_score.json")
@@ -317,12 +428,12 @@ def run_self_consistency(args, benchmark, model, format_name):
             selected_id_field="selected_candidate_id",
         )
         diagnostics = self_consistency_spreadsheet_diagnostics(
-            aggregates, num_candidates=len(SEEDS)
+            aggregates, num_candidates=len(args.self_consistency_seeds)
         )
         save_json(eval_rows, output_dir / "spreadsheet_pot_eval.json")
         save_json(accuracy, output_dir / "spreadsheet_pot_accuracy.json")
         diagnostics.update({"benchmark": benchmark, "method": "Self-Consistency", "format": format_name, "copied_output_workbooks": copied})
-    diagnostics.update({"seed_subset": list(SEEDS), "output_manifest": str(output_dir / "manifest.json")})
+    diagnostics.update({"seed_subset": list(args.self_consistency_seeds), "output_manifest": str(output_dir / "manifest.json")})
     save_json(diagnostics, output_dir / "self_consistency_diagnostics.json")
     print(f"[format-ablation] self_consistency {benchmark} {model} {format_name}: samples={len(aggregates)} output={output_dir}")
 
@@ -342,25 +453,25 @@ def _load_cross_format_candidates(source_root, benchmark, model, formats):
     return paths, filename
 
 
+def _format_order_for(args, benchmark):
+    allowed = set(_format_set_names(args.format_set, benchmark))
+    return tuple(name for name in get_format_order(args.tie_break_order) if name in allowed)
+
+
 def run_sheetflex(args, benchmark, model):
-    formats = tuple(args.format_order)
+    formats = _format_order_for(args, benchmark)
     run_dirs, filename = _load_cross_format_candidates(
         args.source_root, benchmark, model, formats
     )
-    indexed = {
-        format_name: _load_indexed(run_dirs[format_name] / filename)
-        for format_name in formats
-    }
+    for run_dir in run_dirs.values():
+        if not (run_dir / filename).is_file():
+            raise SheetFlexError(f"Candidate result file missing: {run_dir / filename}")
     dataset_path, dataset_rows = _load_dataset(benchmark, args.dataset_root)
     selected_rows = _select_rows(dataset_rows, args.ids, args.limit)
     dataset_by_id = index_rows_by_id(dataset_rows, source=str(dataset_path))
     output_dir = (
         Path(args.output_root) / args.method / benchmark / model
     ).resolve()
-    if output_dir.exists() and any(output_dir.iterdir()):
-        if not args.resume:
-            raise SheetFlexError(f"Refusing to overwrite non-empty output directory: {output_dir}")
-    output_dir.mkdir(parents=True, exist_ok=True)
     output_manifest = _base_output_manifest(
         args,
         benchmark,
@@ -368,7 +479,9 @@ def run_sheetflex(args, benchmark, model):
         formats,
         {"source_root": str(Path(args.source_root).resolve()), "run_dirs": {name: str(path) for name, path in run_dirs.items()}},
     )
-    save_json(output_manifest, output_dir / "manifest.json")
+    if not _prepare_output(args, output_dir, output_manifest, selected_rows):
+        return
+    indexed = {name: _load_indexed(run_dirs[name] / filename) for name in formats}
 
     aggregates = []
     for item in selected_rows:
@@ -521,15 +634,21 @@ def run_sheetflex(args, benchmark, model):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Four-format offline ablation aggregation")
+    parser = argparse.ArgumentParser(description="Offline format ablation aggregation")
     parser.add_argument("method", choices=("self_consistency", *METHODS))
     parser.add_argument("benchmark", choices=("realhit", "spreadsheet"))
     parser.add_argument("--model", required=True)
     parser.add_argument(
         "--format",
-        choices=ABLATION_FORMATS,
+        choices=tuple(dict.fromkeys(ABLATION_FORMATS + ("image", "excel_1_image"))),
         default=None,
         help="Format for one-format Self-Consistency; ignored by cross-format methods.",
+    )
+    parser.add_argument(
+        "--format_set",
+        choices=("four", "five"),
+        default="four",
+        help="Use the existing four-format set or the five-format benchmark-specific set.",
     )
     parser.add_argument("--candidate_root", default=str(REPO_DIR / "sc_outs/candidates"))
     parser.add_argument("--source_root", default=str(REPO_DIR / "lp_outs"))
@@ -538,6 +657,13 @@ def parse_args():
     parser.add_argument("--ids", default=None)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--skip_completed", action="store_true", help="Skip complete results with the same settings, sources and IDs")
+    parser.add_argument("--dry_run", action="store_true", help="Check inputs and output status without aggregation or writes")
+    parser.add_argument(
+        "--self_consistency_seeds",
+        default=",".join(str(seed) for seed in DEFAULT_SC_SEEDS),
+        help="Comma-separated seeds used by Self-Consistency aggregation.",
+    )
     parser.add_argument("--lp_weight_strength", type=float, default=1.0)
     parser.add_argument("--confidence_gate_strength", type=float, default=1.0)
     parser.add_argument("--missing_logprob_policy", choices=("vote", "error"), default="error")
@@ -545,17 +671,30 @@ def parse_args():
         "--tie_break_logprob", choices=("mean", "sum"), default="mean"
     )
     parser.add_argument("--tie_break_order", choices=("recommend", "legacy"), default="recommend")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.limit < 0:
+        parser.error("--limit must be >= 0")
+    return args
 
 
 def main():
     args = parse_args()
-    args.format_order = tuple(
-        name for name in get_format_order(args.tie_break_order) if name in ABLATION_FORMATS
-    )
+    args.self_consistency_seeds = _parse_seed_list(args.self_consistency_seeds)
+    args.format_order = _format_order_for(args, args.benchmark)
     if args.method == "self_consistency":
         if args.format is None:
             raise SystemExit("--format is required for self_consistency")
+        if args.format not in _sc_format_names(args.format_set):
+            raise SystemExit(
+                f"Format {args.format!r} is not in {args.format_set} set for {args.benchmark}"
+            )
+        if args.format_set == "five" and (
+            len(args.self_consistency_seeds) != 5
+            or not set(args.self_consistency_seeds) <= set(range(42, 48))
+            or tuple(sorted(args.self_consistency_seeds)) != args.self_consistency_seeds
+        ):
+            raise SystemExit("Five-seed SC requires five distinct seeds from 42..47 in ascending order; pass --self_consistency_seeds")
+        args.format_order = (args.format,)
         run_self_consistency(args, args.benchmark, args.model, args.format)
     else:
         run_sheetflex(args, args.benchmark, args.model)
